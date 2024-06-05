@@ -1,13 +1,13 @@
 TARGET = $(notdir $(CURDIR))
-include ../../../config
+include ../../depends/config
 C_FLAGS += -std=c++0x -Wall  -Werror=return-type
 ifeq ($(BETA_VERSION),true)
 	C_FLAGS+=-DBETAVER
 endif
-CPP_FLAGS += -I../../../include -I./
+CPP_FLAGS += -I../../depends/include -I./ -I../../depends/src
 
-LD_FLAGS += -lExtAppIpc -lPoco -lCommon -lNetComm  -lJson -lProto -lprotobuf-lite -lzmq -lsodium -lssl -lcrypto -L../../lib  -lpthread -lrt -ldl -Wl,-rpath=/app/lib
-DEG_LD_FLAGS += -lExtAppIpcd -lPocod -lCommond -lNetCommd  -lJsond -lProtod -lprotobuf-lite -lzmq -lsodium -lssl  -lcrypto -L../../libd -lpthread -lrt -ldl -Wl,-rpath=/app/lib
+LD_FLAGS += -lExtAppIpc -lPoco -lCommon -lNetComm  -lJson -lProto -lzmq -lsodium -lssl -lcrypto -L../../depends/bin/lib  -lpthread -lrt -ldl -Wl,-rpath=/app/lib
+DEG_LD_FLAGS += -lExtAppIpcd -lPocod -lCommond -lNetCommd  -lJsond -lProtod -lprotobuf-lite -lzmq -lsodium -lssl  -lcrypto -L../../ldepends/bin/ibd -lpthread -lrt -ldl -Wl,-rpath=/app/lib
 
 COMPILE.c = $(CROSS_COMPILER)g++ $(C_FLAGS) $(CPP_FLAGS) -c
 LINK.c = $(CROSS_COMPILER)g++
