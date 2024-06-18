@@ -22,7 +22,7 @@
 #include "Timer.h"
 #include "HttpClient.h"
 #include "HttpServer.h"
-
+#include "WebServer.h"
 using namespace Poco;
 using namespace ISFIT;
 using namespace CMM;
@@ -61,7 +61,7 @@ namespace CMM{
 										CData dlyTime3, CData clearDlyTime3);
 			int UpdateParam(std::map<CData, CData>& paramMap,std::map<CData,CData>& errorMap);
 			void initialize(std::list<std::tuple<CData, CData> >& param);
-			CData describe() {return "中国移动B接口APP_V1.0.0.20240531";};	// DAHAI
+			CData describe() {return "中国移动B接口APP_V1.0.0.20240618";};	// DAHAI
 			void start();
 			void stop();
 			void unInitialize();
@@ -108,6 +108,7 @@ namespace CMM{
 			//int m_heartBeatTimeout;	
 			Poco::SharedPtr<CHttpClient>   m_client;
 			Poco::SharedPtr<CHttpServer>   m_server;
+			Poco::SharedPtr<CWebServer>   m_webServer;
 			Poco::FastMutex m_alarmMutex;
 			std::list<TAlarm> m_alarmList;
 			CMMLogFile m_log;
@@ -115,8 +116,6 @@ namespace CMM{
 			Poco::SharedPtr<ISFIT::CTimer> m_recoverPowerdownAlarmParamTimer;
 			Poco::SharedPtr<ISFIT::CTimer> m_updateDevTimer;
 			Poco::SharedPtr<ISFIT::CTimer> m_wirteMeasurementFileTimer;
-			//Poco::SharedPtr<ISFIT::CTimer> m_syncAlarmDlyTimer;
-			//std::atomic<bool> m_syncingAlarmDlyParam;
 	};
 };
 extern "C" CIModule* GetModule();

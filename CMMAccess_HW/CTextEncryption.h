@@ -24,17 +24,17 @@ class CTextEncryption
 
 		/*
 		*getToken(message, outMessage)
-		* appKey appkey æ•£åˆ—åå¯†ç 
-		* body:HTTPæ¶ˆæ¯ä½“
-		* reuturn è½¬å‡ºä¸² tokenå€¼
+		* appKey appkey É¢ÁĞºóÃÜÂë
+		* body:HTTPÏûÏ¢Ìå
+		* reuturn ×ª³ö´® tokenÖµ
 		*/
 		static CData getToken(const CData& appKey, const CData& body);
 
 		/*
 		* md5(inMessage, outMessage,nType)
-		* inMessage httpæ¶ˆæ¯ä½“
-		* outMessage httpæ¶ˆæ¯ä½“è½¬å‡ºä¸²
-		* nType:    è½¬å‡ºä¸²ç®—æ³• 0md5 1 SHA256 2 sm3...
+		* inMessage httpÏûÏ¢Ìå
+		* outMessage httpÏûÏ¢Ìå×ª³ö´®
+		* nType:    ×ª³ö´®Ëã·¨ 0md5 1 SHA256 2 sm3...
 		*/
 		static bool hashMessage(const CData& inMessage, CData& outMessage, int nType);
 

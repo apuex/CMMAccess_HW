@@ -4,6 +4,7 @@
 #include <fstream>  
 #include <algorithm>  
 #include "CMMConfig.h"
+#include "CMMDeviceConfig.h"
 #include "CLog.h"
 #include "CMMMeteTranslate.h"
 #include "CMMProtocolEncode.h"
@@ -102,13 +103,7 @@ namespace CMM{
 		m_RoomID = GetParam(CMM::param::RoomID, "");
 		m_RoomName = GetParam(CMM::param::RoomName, "");
 
-		m_DeviceIdList = GetParam(CMM::param::DeviceIdList, "");
-		m_BrandModelList = GetParam(CMM::param::BrandModelList, "");
-		m_DeviceDescList = GetParam(CMM::param::DeviceDescList, "");
-		m_DeviceCapList = GetParam(CMM::param::DeviceCapList, "");
-		m_DeviceVersionList = GetParam(CMM::param::DeviceVersionList, "");
-		m_DeviceTimeList = GetParam(CMM::param::DeviceTimeList, "");
-
+		
 		m_IgnoreAlarmLevel = GetParam(CMM::param::IgnoreAlarmLevel, "");
 		m_IgnoreAlarmLevelVec.clear();
 		if(m_IgnoreAlarmLevel.length()>0)
@@ -119,11 +114,6 @@ namespace CMM{
 		CMMAccess::instance()->AddLinuxSysUser(m_ftpUsr, "", "/");
 		CMMAccess::instance()->ModifyLinuxSysPasswd(m_ftpUsr, m_ftpPasswd);
 
-		//读取移动动环+告警相关配置文件
-		if (!ReadDeviceListConfig())
-		{
-			LogNotice("ReadDeviceListXml json error.");
-		}
 		ReadCMMConfigData();
 		//m_fsuId =  ISFIT::Config::getString(CMM::param::FsuId, "MSJW201605170001");
 		m_DevCfgFileName = CMM_DEVICE_CONFIG; 
@@ -166,59 +156,6 @@ namespace CMM{
 				return false;
 			}
 		}
-		return true;
-	}
-
-	bool CMMConfig::ReadDeviceListConfig()
-	{
-		static bool first = true;
-		std::vector<std::string> DeviceId = extractValues(m_DeviceIdList.c_str());
-		std::vector<std::string> BrandModelList = extractValues(m_BrandModelList.c_str());
-		std::vector<std::string> DeviceDescList = extractValues(m_DeviceDescList.c_str());
-		std::vector<std::string> DeviceCapList = extractValues(m_DeviceCapList.c_str());
-		std::vector<std::string> DeviceVersionList = extractValues(m_DeviceVersionList.c_str());
-		std::vector<std::string> DeviceTimeList = extractValues(m_DeviceTimeList.c_str());
-		// 使用初始化列表调用函数  
-		std::initializer_list<const std::vector<std::string>*> vecs = {
-			&DeviceId, &BrandModelList, &DeviceDescList, &DeviceCapList, &DeviceVersionList, &DeviceTimeList
-		};
-		if (!areVectorsEqualSize(vecs)) 
-		{
-			LogInfo("All list sizes are inconsistent. ");
-			return false;
-		}
-		for (size_t i = 0; i < DeviceId.size(); ++i)
-		{
-			TDeviceInfo sInfo;
-			sInfo.DeviceNo = DeviceId[i];
-			if (sInfo.DeviceNo.size() >= 4)
-				sInfo.DeviceSubType = sInfo.DeviceNo.substr(2, 2);
-			else
-				continue;
-			std::string modelBrand = BrandModelList[i];
-			size_t pos = modelBrand.find("-");
-			if (pos == std::string::npos)
-				continue;
-			sInfo.Brand = modelBrand.substr(0, pos);
-			sInfo.Model = modelBrand.substr(pos+1);
-			sInfo.Desc = DeviceDescList[i];
-			sInfo.RatedCapacity = DeviceCapList[i];
-			sInfo.Version = DeviceVersionList[i];
-			sInfo.BeginRunTime = DeviceTimeList[i];
-			LogInfo("DeviceNo :" << sInfo.DeviceNo << " DeviceSubType :" << sInfo.DeviceSubType);
-			LogInfo("Brand :" << sInfo.Brand << " Model :" << sInfo.Model);
-			if(m_aliasId2Info.find(sInfo.DeviceNo) == m_aliasId2Info.end())
-				m_aliasId2Info.emplace(sInfo.DeviceNo, sInfo);
-			else
-				m_aliasId2Info[sInfo.DeviceNo] =  sInfo;
-		}
-		LogInfo("m_aliasId2Info size: " << m_aliasId2Info.size());
-		if (first)
-		{
-			first = false;
-			return true;
-		}
-		UpdateCfgFile();
 		return true;
 	}
 
@@ -406,27 +343,30 @@ namespace CMM{
 			CData aliasDevId = *it;
 			if (aliasDevId.length() < 4)
 				continue;
-			LogInfo("--------aliasDevId :"<<aliasDevId);
+			
 
 			std::map<CData,CData> paramMap;
 			APPAPI::GetDevParam(aliasDevId,"alias", paramMap,5000);
 				
+			CData devId = paramMap["devId"];
 			CData deviceName = paramMap["aliasDevName"];
 			TDevConf dev={0};
 			dev.DeviceID = aliasDevId;
 			dev.DeviceName = deviceName;
-			dev.DeviceType = aliasDevId.substr(0,2).convertInt();
-			dev.DeviceSubType = aliasDevId.substr(2,2).convertInt();
-			auto iter = m_aliasId2Info.find(aliasDevId);
-			if (iter != m_aliasId2Info.end())
+			dev.DeviceType = aliasDevId.substr(0,2);
+			dev.DeviceSubType = aliasDevId.substr(2,2);
+			LogInfo("--------aliasDevId :" << aliasDevId << " deviceID:" << devId);
+			auto iter = CMMDeviceConfig::instance()->GetDevices().find(devId);
+			if (iter != CMMDeviceConfig::instance()->GetDevices().end())
 			{
-				TDeviceInfo sinfo = iter->second;
+				TDeviceInfo& sinfo = iter->second;
 				dev.Brand = sinfo.Brand;
 				dev.Model = sinfo.Model;
 				dev.DevDescribe = sinfo.Desc;
 				dev.Version = sinfo.Version;
 				dev.RatedCapacity = sinfo.RatedCapacity.convertDouble();
 				dev.BeginRunTime = sinfo.BeginRunTime;
+				dev.DeviceSubType = sinfo.DeviceSubType;
 			}
 			dev.SiteID = m_SiteID;
 			dev.SiteName = m_SiteName;
@@ -566,7 +506,7 @@ namespace CMM{
 			LogInfo("deviceId:  " << deviceId);
 			if (1)
 			{
-				auto iter = m_aliasId2Info.find(aliasDevId);
+				/*auto iter = m_aliasId2Info.find(aliasDevId);
 				if (iter != m_aliasId2Info.end())
 				{
 					TDeviceInfo& sinfo = iter->second;
@@ -580,7 +520,7 @@ namespace CMM{
 				m_SiteID = devConf.SiteID;
 				m_SiteName = devConf.SiteName;
 				m_RoomID = devConf.RoomID;
-				m_RoomName = devConf.RoomName;
+				m_RoomName = devConf.RoomName;*/
 				std::list<std::map<CData,CData> > paramList;
 				std::list<TSignal>& singals = devConf.singals;
 				for (auto mit=singals.begin(); mit!=singals.end(); mit++)

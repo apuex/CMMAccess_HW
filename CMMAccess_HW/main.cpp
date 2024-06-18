@@ -64,9 +64,6 @@ int ExtAppMain(int argc, char* argv[])
 	ISFIT::tLogConfig config;
 	CData logFileName = "/userdata/log/"+extAppName + ".log";
 	config.logFileName =logFileName.c_str();
-	//CData logFileSize = APPAPI::GetExtAppParam(CMM::param::LogFileSize) + "M";
-	//config.logSize = logFileSize.c_str();
-	//config.logLevel = APPAPI::GetExtAppParam(CMM::param::LogLevel).c_str();
 	ISFIT::CLog::Instance().init(config);
 	
 	CMM::CMMAccess::instance()->start();
@@ -74,6 +71,7 @@ int ExtAppMain(int argc, char* argv[])
 	{
 		Poco::Thread::sleep(100);
 	}
+	return 0;
 }
 
 

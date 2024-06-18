@@ -61,6 +61,7 @@ namespace CMM{
 		const char* const SCIpRoute = "平台路由";
 		const char* const FSUIp = "设备IP";
 		const char* const FSUPort = "设备端口";
+		const char* const WebPort = "Web服务端口";
 		const char* const DevCfgTime = "设备配置时间";
 		const char* const LoginState = "注册状态";
 		const char* const LoginFailTime = "注册失败（小时）";
@@ -207,8 +208,8 @@ typedef struct		  sTDevConf
 	CData SiteName;
 	CData RoomID;
 	CData SiteID;
-	int DeviceType;
-	int DeviceSubType;
+	CData DeviceType;
+	CData DeviceSubType;
 	CData Model;
 	CData Brand;
 	float RatedCapacity;
@@ -285,8 +286,11 @@ typedef struct
 typedef struct
 {
 	CData DeviceNo;   //设备编码
+	CData AliasDeviceNo;   //设备别名编码
 	CData DeviceName; //设备名称
-	CData DeviceSubType;//设备子类型
+	CData AliasDeviceName;//设备别名
+	CData ParentDeviceID;//父设备ID
+	CData DeviceSubType;//类型子设备
 	CData Brand;//设备品牌
 	CData Model;//设备型号
 	CData Desc;//描述

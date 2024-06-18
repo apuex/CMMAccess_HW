@@ -3,6 +3,7 @@
 
 #include "CMMAccess.h"
 #include "CMMConfig.h"
+#include "CMMDeviceConfig.h"
 #include "CMMCommonStruct.h"
 #include "SysCommon.h"
 #include "CLog.h"
@@ -51,6 +52,7 @@ namespace CMM{
 		m_nRetry = 0;
 		m_server = new CHttpServer();
 		m_client = new CHttpClient();
+		m_webServer = new CWebServer();
 	}
 	
 	CMMAccess* CMMAccess::instance()
@@ -298,10 +300,13 @@ namespace CMM{
 		CData state = isLoginOk ? "成功" : "失败";
 		m_bLoginOK = isLoginOk;
 		CData oldState = CMMConfig::instance()->GetParam(CMM::param::LoginState, "");
+		LogInfo("oldState: " << oldState.c_str());
 		if (oldState != state)
 		{
 			CMMConfig::instance()->SetParam(CMM::param::LoginState, state);
 		}
+		CData newState = CMMConfig::instance()->GetParam(CMM::param::LoginState, "");
+		LogInfo("newState: " << newState.c_str());
 	}
 
 	void CMMAccess::Test()
@@ -482,7 +487,9 @@ namespace CMM{
 
 		m_registerStatus = CMM_REGISTER_FAILED;
 	
+		CMMDeviceConfig::instance()->Init();
 		CMMConfig::instance()->Init();
+		
 
 		m_scEndPoint = "http://"+CMMConfig::instance()->GetParam(CMM::param::SCIp, "1.1.1.1")+":"
 					+CMMConfig::instance()->GetParam(CMM::param::SCPort, "80")+"/v1/services/newLSCService";//LSCService
@@ -495,9 +502,11 @@ namespace CMM{
 
 		m_wirteFileTime = CMMConfig::instance()->GetParam(CMM::param::GetMeasurementTime, "15").convertInt();
 
-		int fsuPort = CMMConfig::instance()->GetParam(CMM::param::FSUPort, "8888").convertInt();
+		int fsuPort = CMMConfig::instance()->GetParam(CMM::param::FSUPort, "8443").convertInt();
+		int webPort = CMMConfig::instance()->GetParam(CMM::param::WebPort, "8080").convertInt();
 			
 		m_server->Start(fsuPort, m_fsuEndPoint);
+		m_webServer->Start(webPort);
 		m_client->Start(m_scEndPoint.c_str());
 	}
 
@@ -1157,7 +1166,7 @@ namespace CMM{
 		param.push_back(std::make_tuple(CData(CMM::param::SCIp), CData("36.133.176.228")));
 		param.push_back(std::make_tuple(CData(CMM::param::SCPort), CData("28006")));
 		param.push_back(std::make_tuple(CData(CMM::param::SCIpRoute), CData("eth0")));
-
+		param.push_back(std::make_tuple(CData(CMM::param::WebPort), CData("8080")));
 
 		/*param.push_back(std::make_tuple(CData(CMM::param::Brand), CData("海悟")));
 		param.push_back(std::make_tuple(CData(CMM::param::Model), CData("HW123")));
@@ -1173,12 +1182,12 @@ namespace CMM{
 		param.push_back(std::make_tuple(CData(CMM::param::RoomName), CData("室内汇聚机房")));
 		/*std::string xml_str = R"(<?xml version=\"1.0\" encoding=\"UTF-8\"?><DeviceList><Device><DeviceNo>095000000000001</DeviceNo><DeviceName>电源</DeviceName><DeviceSubType>095</DeviceSubType><Brand>海悟</Brand><Model>hw123</Model><Desc>测试机1</Desc><RatedCapacity>10.0</RatedCapacity><Version>1.0.0</Version><BeginRunTime>2024-05-30 18:00:00</BeginRunTime></Device></DeviceList>)";
 		param.push_back(std::make_tuple(CData(CMM::param::DeviceListJson), CData(xml_str)));*/
-		param.push_back(std::make_tuple(CData(CMM::param::DeviceIdList), CData("170100001000001,170100001000002")));
+	/*	param.push_back(std::make_tuple(CData(CMM::param::DeviceIdList), CData("170100001000001,170100001000002")));
 		param.push_back(std::make_tuple(CData(CMM::param::BrandModelList), CData("海悟-HW123,海悟-HW456")));
 		param.push_back(std::make_tuple(CData(CMM::param::DeviceDescList), CData("温度1,温度2")));
 		param.push_back(std::make_tuple(CData(CMM::param::DeviceCapList), CData("5,10")));
 		param.push_back(std::make_tuple(CData(CMM::param::DeviceVersionList), CData("1.0.0,1.0.1")));
-		param.push_back(std::make_tuple(CData(CMM::param::DeviceTimeList), CData("2024-05-31T09:00:00,2024-05-31T09:20:00")));
+		param.push_back(std::make_tuple(CData(CMM::param::DeviceTimeList), CData("2024-05-31T09:00:00,2024-05-31T09:20:00")));*/
 
 		param.push_back(std::make_tuple(CData(CMM::param::GetMeasurementTime), CData("15")));
 		param.push_back(std::make_tuple(CData(CMM::param::HeartBeatTimeout), CData("300")));
@@ -1243,9 +1252,11 @@ namespace CMM{
 			else if (key == CMM::param::FSUPort)
 			{
 				CMMConfig::instance()->SetFsuPort(val);
-				//CMMConfig::instance()->SetParam(CMM::param::FSUPort, val);
-				bool bRet = m_server->ListenPortChange(val.convertInt());
-				LogInfo("ListenPortChange: " << (int)bRet);
+				m_server->ListenPortChange(val.convertInt());
+			}
+			else if (key == CMM::param::WebPort)
+			{
+				m_webServer->ListenPortChange(val.convertInt());
 			}
 			else if (key == CMM::param::SCIp)
 			{
@@ -1277,31 +1288,31 @@ namespace CMM{
 				CMMConfig::instance()->m_scIpRoute = val;
 				//CMMConfig::instance()->SetParam(CMM::param::SCIpRoute, val);
 			}
-			else if (key == CMM::param::DeviceIdList)
-			{
-				CMMConfig::instance()->m_DeviceIdList = val;
-				//CMMConfig::instance()->ReadDeviceListConfig();
-			}
-			else if (key == CMM::param::BrandModelList)
-			{
-				CMMConfig::instance()->m_BrandModelList = val;
-				//CMMConfig::instance()->ReadDeviceListConfig();
-			}
-			else if (key == CMM::param::DeviceDescList)
-			{
-				CMMConfig::instance()->m_DeviceCapList = val;
-				//CMMConfig::instance()->ReadDeviceListConfig();
-			}
-			else if (key == CMM::param::DeviceVersionList)
-			{
-				CMMConfig::instance()->m_DeviceVersionList = val;
-				//CMMConfig::instance()->ReadDeviceListConfig();
-			}
-			else if (key == CMM::param::DeviceTimeList)
-			{
-				CMMConfig::instance()->m_DeviceTimeList = val;
-				CMMConfig::instance()->ReadDeviceListConfig();
-			}
+			//else if (key == CMM::param::DeviceIdList)
+			//{
+			//	CMMConfig::instance()->m_DeviceIdList = val;
+			//	//CMMConfig::instance()->ReadDeviceListConfig();
+			//}
+			//else if (key == CMM::param::BrandModelList)
+			//{
+			//	CMMConfig::instance()->m_BrandModelList = val;
+			//	//CMMConfig::instance()->ReadDeviceListConfig();
+			//}
+			//else if (key == CMM::param::DeviceDescList)
+			//{
+			//	CMMConfig::instance()->m_DeviceCapList = val;
+			//	//CMMConfig::instance()->ReadDeviceListConfig();
+			//}
+			//else if (key == CMM::param::DeviceVersionList)
+			//{
+			//	CMMConfig::instance()->m_DeviceVersionList = val;
+			//	//CMMConfig::instance()->ReadDeviceListConfig();
+			//}
+			//else if (key == CMM::param::DeviceTimeList)
+			//{
+			//	CMMConfig::instance()->m_DeviceTimeList = val;
+			//	CMMConfig::instance()->ReadDeviceListConfig();
+			//}
 			//else if (key == CMM::param::Brand)
 			//{
 			//	CMMConfig::instance()->m_Brand = val;
@@ -1402,7 +1413,7 @@ namespace CMM{
 	void CMMAccess::DeInit()
 	{
 		m_server->Stop();
-		
+		m_webServer->Stop();
 	}
 
 	void CMMAccess::unInitialize()

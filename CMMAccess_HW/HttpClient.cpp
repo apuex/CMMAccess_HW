@@ -48,7 +48,7 @@ namespace CMM
 		request.setContentLength(xmlData.length());
 		request.set("Authorization", authHeader.c_str());
 		request.set("Accept", "application/xml, text/plain, */*");
-		// 閬嶅巻骞舵墦鍗版墍鏈夌殑HTTP澶撮儴
+		// 遍历并打印所有的HTTP头部
 		/*for (auto it = request.begin(); it != request.end(); ++it)
 		{
 			LogInfo("Header: " << it->first << " = " << it->second);
@@ -108,7 +108,7 @@ namespace CMM
 
 	CData CHttpClient::GetTokenFromHeader(const HTTPResponse& response)
 	{
-		// 鏌ユ壘Authorization澶村苟瑙ｆ瀽Bearer Token
+		// 查找Authorization头并解析Bearer Token
 		auto it = response.find("Authorization");
 		std::string token, key, value;
 		if (it != response.end()) {
@@ -117,12 +117,12 @@ namespace CMM
 			{
 				std::getline(iss, value, ',');
 				if (key == "token") {
-					token = value.substr(1, value.length() - 2); // 鍘绘帀寮曞彿
+					token = value.substr(1, value.length() - 2); // 去掉引号
 					break;
 				}
-				iss.ignore(std::numeric_limits<std::streamsize>::max(), ','); // 璺宠繃閫楀彿鍜岀┖鏍煎埌涓嬩竴涓敭鍊煎
+				iss.ignore(std::numeric_limits<std::streamsize>::max(), ','); // 跳过逗号和空格到下一个键值对
 
-				iss.ignore(std::numeric_limits<std::streamsize>::max(), ' '); // 蹇界暐閫楀彿鍚庡彲鑳藉瓨鍦ㄧ殑绌烘牸
+				iss.ignore(std::numeric_limits<std::streamsize>::max(), ' '); // 忽略逗号后可能存在的空格
 			}
 		}
 		CData strToken(token);

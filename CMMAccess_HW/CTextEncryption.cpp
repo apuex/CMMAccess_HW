@@ -71,7 +71,7 @@ namespace CMM
 	
 	bool CTextEncryption::hashMessage(const CData& inMessage, CData& outMessage,int nType)
 	{
-		// åˆ›å»ºä¸€ä¸ªstringstreamç”¨äºæ„å»ºåå…­è¿›åˆ¶å­—ç¬¦ä¸²
+		// ´´½¨Ò»¸östringstreamÓÃÓÚ¹¹½¨Ê®Áù½øÖÆ×Ö·û´®
 		std::stringstream ss;
 		if (nType == 0)  //MD5
 		{
@@ -102,15 +102,15 @@ namespace CMM
 		}
 		else if (nType == 2)  //SM3
 		{
-			// åˆå§‹åŒ–åŸå§‹æ•°æ®ç¼“å†²åŒºå’ŒSM3ä¸Šä¸‹æ–‡
+			// ³õÊ¼»¯Ô­Ê¼Êı¾İ»º³åÇøºÍSM3ÉÏÏÂÎÄ
 			//unsigned char hash[SM3_DIGEST_LENGTH];
 			//SM3_CTX sm3;
-			//// åˆå§‹åŒ–å¹¶æ›´æ–°SM3ä¸Šä¸‹æ–‡
+			//// ³õÊ¼»¯²¢¸üĞÂSM3ÉÏÏÂÎÄ
 			//sm3_init(&sm3);
 			//sm3_update(&sm3, passwd.c_str(), passwd.length());
-			//// ç”ŸæˆSM3æ•£åˆ—å€¼
+			//// Éú³ÉSM3É¢ÁĞÖµ
 			//sm3_final(hash, &sm3);
-			//// å°†äºŒè¿›åˆ¶æ•£åˆ—å€¼è½¬æ¢ä¸ºå¤§å†™çš„åå…­è¿›åˆ¶å­—ç¬¦ä¸²
+			//// ½«¶ş½øÖÆÉ¢ÁĞÖµ×ª»»Îª´óĞ´µÄÊ®Áù½øÖÆ×Ö·û´®
 			//for (int i = 0; i < SM3_DIGEST_LENGTH; ++i) {
 			//	ss << std::hex << std::uppercase << static_cast<int>(hash[i]);
 			//}

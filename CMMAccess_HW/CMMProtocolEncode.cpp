@@ -114,8 +114,8 @@ namespace CMM{
 			SET_XML_ATTRIBUTE(device, "RoomID", dev.RoomID.c_str());
 			SET_XML_ATTRIBUTE(device, "SiteName", dev.SiteName.c_str());
 			SET_XML_ATTRIBUTE(device, "RoomName", dev.RoomName.c_str());
-			SET_XML_ATTRIBUTE(device, "DeviceType", dev.DeviceType);
-			SET_XML_ATTRIBUTE(device, "DeviceSubType", dev.DeviceSubType);
+			SET_XML_ATTRIBUTE(device, "DeviceType", dev.DeviceType.c_str());
+			SET_XML_ATTRIBUTE(device, "DeviceSubType", dev.DeviceSubType.c_str());
 			SET_XML_ATTRIBUTE(device, "Model", dev.Model.c_str());
 			SET_XML_ATTRIBUTE(device, "Brand", dev.Brand.c_str());
 			SET_XML_ATTRIBUTE(device, "RatedCapacity", dev.RatedCapacity);
@@ -199,15 +199,12 @@ namespace CMM{
 			info.AddSubElement("FailureCause").SetElementText("NULL");
 			info.AddSubElement("FSUID").SetElementText(CMMConfig::instance()->GetFsuId().c_str());
 			ISFIT::CXmlElement TFSUStatus =  info.AddSubElement("TFSUStatus");
-			ISFIT_OS::T_SysInfo sysinfo;
-			ISFIT_OS::getsysInfo(sysinfo);
+			CData cpuUsage, memUsage;
+			APPAPI::GetMeterVal("215001", "138101001", "msj", cpuUsage);
+			APPAPI::GetMeterVal("215001", "138102001", "msj", memUsage);
 
-			//TFSUStatus.AddSubElement("CPUUsage").SetElementText((float)12.9);
-			//TFSUStatus.AddSubElement("MEMUsage").SetElementText((float)18.8);
-			//TFSUStatus.AddSubElement("HardDiskUsage").SetElementText((float)66.9);
-			
-			TFSUStatus.AddSubElement("CPUUsage").SetElementText(std::abs(sysinfo.cpuUsage));
-			TFSUStatus.AddSubElement("MEMUsage").SetElementText(std::abs(sysinfo.memUsage));
+			TFSUStatus.AddSubElement("CPUUsage").SetElementText((float)cpuUsage.convertDouble());
+			TFSUStatus.AddSubElement("MEMUsage").SetElementText((float)memUsage.convertDouble());
 			TFSUStatus.AddSubElement("HardDiskUsage").SetElementText((float)0.0);
 		}
 		catch (Poco::Exception& ex)

@@ -14,8 +14,8 @@ namespace CMM
 			dev.Brand = Device.GetAttribute("Brand");
 			dev.DevDescribe = Device.GetAttribute("DevDescribe");
 			dev.DeviceName = Device.GetAttribute("DeviceName");
-			dev.DeviceSubType = Device.GetAttribute("DeviceSubType").convertInt();
-			dev.DeviceType = Device.GetAttribute("DeviceType").convertInt();
+			dev.DeviceSubType = Device.GetAttribute("DeviceSubType");
+			dev.DeviceType = Device.GetAttribute("DeviceType");
 			dev.Model = Device.GetAttribute("Model");
 			dev.RatedCapacity = Device.GetAttribute("RatedCapacity").convertDouble();
 			dev.RoomName = Device.GetAttribute("RoomName");

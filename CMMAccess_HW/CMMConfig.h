@@ -35,12 +35,6 @@ namespace CMM{
 		CData m_RoomID;
 		CData m_RoomName;
 
-		CData m_DeviceIdList;
-		CData m_BrandModelList;
-		CData m_DeviceDescList;
-		CData m_DeviceCapList;
-		CData m_DeviceVersionList;
-		CData m_DeviceTimeList;
 		std::map<CData, TDeviceInfo> m_aliasId2Info;  //设备别名ID---》设备信息
 
 		CData m_fsuVersion;
@@ -75,9 +69,7 @@ namespace CMM{
 		void SetPassword(CData password,bool saveDb=false);
 		int SetFtpPasswd( CData usr , bool saveDb=false);
 		int SetFtpUsr(CData usr, bool saveDb=false);
-		CData GetFsuConfigTime();
-		void SetFsuConfigTime( CData time );
-	
+
 		std::map<CData, TDevConf> &GetDevices();
 		int GetDevConf(CData devid, TDevConf& cfg);
 		int SetSemaphoreConf(CData devid, TSemaphore& cfg);

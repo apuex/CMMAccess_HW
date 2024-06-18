@@ -29,12 +29,12 @@ namespace CMM
 		~CHttpClient();
 		void Start(const char* url);
 		/*
-		* å‘é€xmlæ•°æ® è¿”å›1æˆåŠŸ -2è¶…æ—¶ å…¶ä»–å¤±è´¥
+		* ·¢ËÍxmlÊı¾İ ·µ»Ø1³É¹¦ -2³¬Ê± ÆäËûÊ§°Ü
 		*/
 		int SendXmlData(const char* url, CData xmlData, CData authHeader, HTTPResponse& response, CData& responseData);
 
 		/*
-		* è·å–response è®¤è¯å¤´ token
+		* »ñÈ¡response ÈÏÖ¤Í· token
 		*/
 		static CData GetTokenFromHeader(const HTTPResponse& response);
 
