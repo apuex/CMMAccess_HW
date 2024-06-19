@@ -958,7 +958,7 @@ namespace CMM{
 					time.erase(std::remove(time.begin(), time.end(), c), time.end());
 				}
 				std::ostringstream os;
-				os << semInfo.ID.c_str() << std::setw(3) << std::setfill('0') << semInfo.SignalNumber;
+				os << semInfo.ID.c_str() << std::setw(3) << std::setfill('0') << 1;
 				CData meterId = os.str();
 				CData meterName = GetDictionaryName(meterId);
 				std::ostringstream oss;
