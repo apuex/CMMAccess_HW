@@ -32,13 +32,6 @@ namespace CMM{
 		const char* const yy = "纬度";
 		
 		
-		const char* const DeviceIdList = "设备ID列表";
-		const char* const BrandModelList = "品牌型号列表";
-		const char* const DeviceDescList = "设备描述列表";
-		const char* const DeviceCapList = "额定容量列表";
-		const char* const DeviceVersionList = "设备版本列表";
-		const char* const DeviceTimeList = "启用时间列表";
-
 		const char* const FsuId  = "设备ID";
 	//	const char* const FsuCode  = "设备Code";
 		const char* const UserName = "设备账号";

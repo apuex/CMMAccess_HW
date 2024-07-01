@@ -27,7 +27,7 @@ namespace CMM
 	public:
 		CHttpClient();
 		~CHttpClient();
-		void Start(const char* url);
+		void Start();
 		/*
 		* 发送xml数据 返回1成功 -2超时 其他失败
 		*/

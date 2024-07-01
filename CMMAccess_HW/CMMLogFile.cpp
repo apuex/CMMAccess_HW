@@ -80,7 +80,7 @@ namespace CMM
 
 	void CMMLogFile::FormatAlarmInfo(TAlarm &alarm, CData &info )
 	{		
-		info =  alarm.SerialNo+"|@"
+		/*info =  alarm.SerialNo+"|@"
 				+alarm.ID+"|@"
 				+alarm.DeviceID+"|@"
 				+alarm.NMAlarmID+"|@"
@@ -90,7 +90,21 @@ namespace CMM
 				+alarm.AlarmDesc+"|@"
 				+alarm.AlarmRemark2+"|@"
 				+CData(alarm.SignalNumber)+"|@"
-				+alarm.AlarmRemark1+"\n\r";
+				+alarm.AlarmRemark1+"\n\r";*/
+
+		std::ostringstream oss;
+		oss << alarm.SerialNo.c_str() <<"|@"
+			<< alarm.ID.c_str() << "|@"
+			<< alarm.DeviceID.c_str() << "|@"
+			<< alarm.NMAlarmID.c_str() << "|@"
+			<< alarm.AlarmTime.c_str() << "|@"
+			<< alarm.AlarmLevel << "|@"
+			<< alarm.AlarmFlag.c_str() << "|@"
+			<< alarm.AlarmDesc.c_str() << "|@"
+			<< alarm.AlarmRemark2.c_str() << "|@"
+			<< alarm.SignalNumber << "|@"
+			<< alarm.AlarmRemark1.c_str() << "\n";
+		info = oss.str();
 	}
 
 }

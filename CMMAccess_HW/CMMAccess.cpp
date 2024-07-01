@@ -50,8 +50,15 @@ namespace CMM{
 		m_RightLevel = -1;
 		m_registerTime = 60;
 		m_nRetry = 0;
+		
+#ifdef ACCESSCONTROL
+		m_udpServer = new CUdpServer();
+		m_udpClient = new CUdpClient();
+#else
 		m_server = new CHttpServer();
 		m_client = new CHttpClient();
+#endif // ACCESSCONTROL
+		
 		m_webServer = new CWebServer();
 	}
 	
@@ -300,7 +307,6 @@ namespace CMM{
 		CData state = isLoginOk ? "成功" : "失败";
 		m_bLoginOK = isLoginOk;
 		CData oldState = CMMConfig::instance()->GetParam(CMM::param::LoginState, "");
-		LogInfo("oldState: " << oldState.c_str());
 		if (oldState != state)
 		{
 			CMMConfig::instance()->SetParam(CMM::param::LoginState, state);
@@ -401,16 +407,20 @@ namespace CMM{
 					LogInfo("==key:"<<ait->first<<" val:"<<ait->second);
 			}
 		}
-		//095100001000001
-		/*CData strDevid = "6854123";
-		int nRet = APPAPI::DelDev(strDevid);
-		LogInfo("111111   " << nRet);
-		CData strDevName = "一体化电源";
-		CData strMb = "户外小型一体化电源_CMCC";
-		CData dId = APPAPI::CreateDev(strDevName, strMb, true, strDevid);
-		LogInfo("222222   " << dId.c_str());
-		nRet = APPAPI::SetMeterVal(strDevid, "095305001", "AI", "10");
-		LogInfo("负载总电流 " << nRet);*/
+		
+		if (1)
+		{
+			std::map<CData, std::list<TSemaphore>> reqDevMap;
+			CMMConfig::instance()->GetSemaphoreConf(reqDevMap);
+			CData sendBuffer = CMMProtocolEncode::BuildDataReportTest(reqDevMap);
+			CData responseData;
+			int nRet  = m_udpClient->SendXmlData(m_scEndPoint.c_str(), sendBuffer, responseData);
+			if (responseData.size() <= 0 || nRet < 0)
+			{
+				LogError("SendXmlData error." << nRet);
+				return;
+			}
+		}
 	}
 
 	void CMMAccess::UpdateModuleInfo()
@@ -432,6 +442,25 @@ namespace CMM{
 
 	void CMMAccess::run()
 	{
+#ifdef ACCESSCONTROL
+		m_registerStatus = CMM_REGISTER_SUCCESS;
+		while (m_bStart)
+		{
+			Poco::Timestamp now;
+			time_t diff = now.epochTime() - m_lastMsgTime.epochTime();
+			if (diff >= m_registerTime || CMMConfig::instance()->m_bUpdate)
+			{
+				std::map<CData, std::list<TSemaphore>> mapSem;
+				ReportDevConf();
+				NotifySendData(mapSem);
+				CMMConfig::instance()->m_bUpdate = false;
+				m_lastMsgTime.update();
+			}
+			ReportAlarms();
+			Test();
+			Poco::Thread::sleep(1000* 3);
+		}
+#else
 		//Test();	
 		SetLoginState(false);//默认登录不成功
 		Poco::Timestamp dataCheckTime;
@@ -476,6 +505,7 @@ namespace CMM{
 			}
 			Poco::Thread::sleep(500);
 		}
+#endif // DEBUG
 	}
 	
 	void CMMAccess::Init()
@@ -490,9 +520,14 @@ namespace CMM{
 		CMMDeviceConfig::instance()->Init();
 		CMMConfig::instance()->Init();
 		
-
-		m_scEndPoint = "http://"+CMMConfig::instance()->GetParam(CMM::param::SCIp, "1.1.1.1")+":"
-					+CMMConfig::instance()->GetParam(CMM::param::SCPort, "80")+"/v1/services/newLSCService";//LSCService
+#ifdef ACCESSCONTROL
+		m_scEndPoint = "udp://" + CMMConfig::instance()->GetParam(CMM::param::SCIp, "1.1.1.1") + ":"
+			+ CMMConfig::instance()->GetParam(CMM::param::SCPort, "80") + "/v1/services/newLSCService";//LSCService
+#else 
+		m_scEndPoint = "http://" + CMMConfig::instance()->GetParam(CMM::param::SCIp, "1.1.1.1") + ":"
+			+ CMMConfig::instance()->GetParam(CMM::param::SCPort, "80") + "/v1/services/newLSCService";//LSCService
+#endif
+		
 		
 		m_fsuEndPoint = CMMConfig::instance()->GetParam(CMM::param::FSUEndPoint, "/v1/services/newFSUService");
 	
@@ -504,10 +539,18 @@ namespace CMM{
 
 		int fsuPort = CMMConfig::instance()->GetParam(CMM::param::FSUPort, "8443").convertInt();
 		int webPort = CMMConfig::instance()->GetParam(CMM::param::WebPort, "8080").convertInt();
+		//int udpPort = CMMConfig::instance()->GetParam(CMM::param::UdpPort, "1234").convertInt();
 			
-		m_server->Start(fsuPort, m_fsuEndPoint);
+		
 		m_webServer->Start(webPort);
-		m_client->Start(m_scEndPoint.c_str());
+		
+#ifdef ACCESSCONTROL
+		m_udpServer->Start(fsuPort);
+		m_udpClient->Start();
+#else // DEBUG
+		m_server->Start(fsuPort, m_fsuEndPoint);
+		m_client->Start();
+#endif
 	}
 
 	
@@ -602,6 +645,17 @@ namespace CMM{
 
 	void CMMAccess::ReportDevConf()
 	{
+#ifdef ACCESSCONTROL
+		CData responseData;
+		CData devInfo = CMMProtocolEncode::ReportDevConf();
+		int nRet = m_udpClient->SendXmlData(m_scEndPoint.c_str(), devInfo, responseData);
+		if (responseData.size() <= 0 || nRet < 0)
+		{
+			LogError("SendXmlData DevConf error.");
+			return;
+		}
+#else 
+
 		if (m_registerStatus != CMM_REGISTER_SUCCESS)
 		{
 			return ;
@@ -614,7 +668,7 @@ namespace CMM{
 		int nRet = m_client->SendXmlData(m_scEndPoint.c_str(), devInfo, auth_header, response, responseData);
 		if (nRet < 0)
 		{
-			LogError("SendXmlData error.");
+			LogError("SendXmlDatav DevConf error.");
 			return;
 		}
 		if (nRet != 200)
@@ -623,6 +677,7 @@ namespace CMM{
 			LogError("send service recv code:" << nRet << " reason:" << response.getReason().c_str());
 			return;
 		}
+#endif
 	}
 
 	void CMMAccess::ReportAlarms()
@@ -632,7 +687,7 @@ namespace CMM{
 		{
 			return ;
 		}
-		CData reportInfo = CMMProtocolEncode::BuildAalrmReportInfo(m_alarmList);	
+		CData reportInfo = CMMProtocolEncode::BuildAlarmReportInfo(m_alarmList);
 		if(SendRequestToServer(reportInfo) == 0)
 		{
 			std::list<TAlarm>::iterator pos = m_alarmList.begin();
@@ -740,6 +795,31 @@ namespace CMM{
 
 	int CMMAccess::SendRequestToServer( CData &reportInfo)
 	{
+#ifdef ACCESSCONTROL
+		CData responseData;
+		int nRet = m_udpClient->SendXmlData(m_scEndPoint.c_str(), reportInfo, responseData);
+		if (nRet < 0)
+		{
+			LogError("SendXmlData error.");
+			return -1;
+		}
+		ISFIT::CXmlDoc doc;
+		if (doc.Parse(responseData.c_str()) < 0)
+		{
+			return -1;
+		}
+		ISFIT::CXmlElement element = doc.GetElement(CMM::Response);
+		ISFIT::CXmlElement Info = element.GetSubElement(CMM::Info);
+		int result = Info.GetSubElement("Result").GetElementText().convertInt();
+		if (result == 1)
+		{
+			return 0;
+		}
+		else
+		{
+			return -1;
+		}
+#else
 		if(m_registerStatus != CMM_REGISTER_SUCCESS)
 		{
 			return -1;
@@ -776,6 +856,7 @@ namespace CMM{
 		{
 			return -1;
 		}
+#endif
 	}
 
 	void CMMAccess::UpdateDevConf(int arg)
@@ -1167,28 +1248,10 @@ namespace CMM{
 		param.push_back(std::make_tuple(CData(CMM::param::SCPort), CData("28006")));
 		param.push_back(std::make_tuple(CData(CMM::param::SCIpRoute), CData("eth0")));
 		param.push_back(std::make_tuple(CData(CMM::param::WebPort), CData("8080")));
-
-		/*param.push_back(std::make_tuple(CData(CMM::param::Brand), CData("海悟")));
-		param.push_back(std::make_tuple(CData(CMM::param::Model), CData("HW123")));
 		param.push_back(std::make_tuple(CData(CMM::param::SiteID), CData("5101072000001")));
 		param.push_back(std::make_tuple(CData(CMM::param::SiteName), CData("川成都高升桥枢纽站")));
 		param.push_back(std::make_tuple(CData(CMM::param::RoomID), CData("000000011")));
 		param.push_back(std::make_tuple(CData(CMM::param::RoomName), CData("室内汇聚机房")));
-		param.push_back(std::make_tuple(CData(CMM::param::BeginRunTime), CData("2024-05-29 10:00:00")));*/
-		//param.push_back(std::make_tuple(CData(CMM::param::IgnoreAlarmLevel), CData()));
-		param.push_back(std::make_tuple(CData(CMM::param::SiteID), CData("5101072000001")));
-		param.push_back(std::make_tuple(CData(CMM::param::SiteName), CData("川成都高升桥枢纽站")));
-		param.push_back(std::make_tuple(CData(CMM::param::RoomID), CData("000000011")));
-		param.push_back(std::make_tuple(CData(CMM::param::RoomName), CData("室内汇聚机房")));
-		/*std::string xml_str = R"(<?xml version=\"1.0\" encoding=\"UTF-8\"?><DeviceList><Device><DeviceNo>095000000000001</DeviceNo><DeviceName>电源</DeviceName><DeviceSubType>095</DeviceSubType><Brand>海悟</Brand><Model>hw123</Model><Desc>测试机1</Desc><RatedCapacity>10.0</RatedCapacity><Version>1.0.0</Version><BeginRunTime>2024-05-30 18:00:00</BeginRunTime></Device></DeviceList>)";
-		param.push_back(std::make_tuple(CData(CMM::param::DeviceListJson), CData(xml_str)));*/
-	/*	param.push_back(std::make_tuple(CData(CMM::param::DeviceIdList), CData("170100001000001,170100001000002")));
-		param.push_back(std::make_tuple(CData(CMM::param::BrandModelList), CData("海悟-HW123,海悟-HW456")));
-		param.push_back(std::make_tuple(CData(CMM::param::DeviceDescList), CData("温度1,温度2")));
-		param.push_back(std::make_tuple(CData(CMM::param::DeviceCapList), CData("5,10")));
-		param.push_back(std::make_tuple(CData(CMM::param::DeviceVersionList), CData("1.0.0,1.0.1")));
-		param.push_back(std::make_tuple(CData(CMM::param::DeviceTimeList), CData("2024-05-31T09:00:00,2024-05-31T09:20:00")));*/
-
 		param.push_back(std::make_tuple(CData(CMM::param::GetMeasurementTime), CData("15")));
 		param.push_back(std::make_tuple(CData(CMM::param::HeartBeatTimeout), CData("300")));
 		param.push_back(std::make_tuple(CData(CMM::param::LoginTimeout), CData("60")));	
@@ -1263,7 +1326,12 @@ namespace CMM{
 				CData scIp = resolveDomainToIp(val.c_str());
 				CMMConfig::instance()->m_scIp = scIp;
 				//CMMConfig::instance()->SetParam(CMM::param::SCIp, val);
+#ifdef ACCESSCONTROL
+				CData scEndPoint = "udp://" + scIp + ":" + CMMConfig::instance()->m_scPort + "/v1/services/newLSCService";
+#else // ACCESSCONTROL
 				CData scEndPoint = "http://" + scIp + ":" + CMMConfig::instance()->m_scPort + "/v1/services/newLSCService";
+#endif
+				
 				if (m_scEndPoint != scEndPoint)
 				{
 					m_scEndPoint = scEndPoint;
@@ -1275,7 +1343,11 @@ namespace CMM{
 			{
 				CMMConfig::instance()->m_scPort = val;
 				//CMMConfig::instance()->SetParam(CMM::param::SCPort, val);
-				CData scEndPoint = "http://" + CMMConfig::instance()->m_scIp + ":" + val + "/v1/services/newLSCService"; //LSCService
+#ifdef ACCESSCONTROL
+				CData scEndPoint = "udp://" + CMMConfig::instance()->m_scIp + ":" + val + "/v1/services/newLSCService";
+#else // ACCESSCONTROL
+				CData scEndPoint = "http://" + CMMConfig::instance()->m_scIp + ":" + val + "/v1/services/newLSCService";
+#endif
 				if (m_scEndPoint != scEndPoint)
 				{
 					m_scEndPoint = scEndPoint;
@@ -1288,47 +1360,7 @@ namespace CMM{
 				CMMConfig::instance()->m_scIpRoute = val;
 				//CMMConfig::instance()->SetParam(CMM::param::SCIpRoute, val);
 			}
-			//else if (key == CMM::param::DeviceIdList)
-			//{
-			//	CMMConfig::instance()->m_DeviceIdList = val;
-			//	//CMMConfig::instance()->ReadDeviceListConfig();
-			//}
-			//else if (key == CMM::param::BrandModelList)
-			//{
-			//	CMMConfig::instance()->m_BrandModelList = val;
-			//	//CMMConfig::instance()->ReadDeviceListConfig();
-			//}
-			//else if (key == CMM::param::DeviceDescList)
-			//{
-			//	CMMConfig::instance()->m_DeviceCapList = val;
-			//	//CMMConfig::instance()->ReadDeviceListConfig();
-			//}
-			//else if (key == CMM::param::DeviceVersionList)
-			//{
-			//	CMMConfig::instance()->m_DeviceVersionList = val;
-			//	//CMMConfig::instance()->ReadDeviceListConfig();
-			//}
-			//else if (key == CMM::param::DeviceTimeList)
-			//{
-			//	CMMConfig::instance()->m_DeviceTimeList = val;
-			//	CMMConfig::instance()->ReadDeviceListConfig();
-			//}
-			//else if (key == CMM::param::Brand)
-			//{
-			//	CMMConfig::instance()->m_Brand = val;
-			//}
-			//else if (key == CMM::param::Model)
-			//{
-			//	CMMConfig::instance()->m_Model = val;
-			//}
-			//else if (key == CMM::param::RatedCapacity)
-			//{
-			//	//CMMConfig::instance()->m_RatedCapacity = val;
-			//}
-			//else if (key == CMM::param::BeginRunTime)
-			//{
-			//	CMMConfig::instance()->m_BeginRunTime = val;
-			//}
+			
 			else if (key==CMM::param::SiteID)
 			{
 				CMMConfig::instance()->m_SiteID = val;
@@ -1412,7 +1444,11 @@ namespace CMM{
 	
 	void CMMAccess::DeInit()
 	{
-		m_server->Stop();
+#ifdef ACCESSCONTROL
+		m_udpServer->Stop();
+#else // ACCESSCONTROL
+		m_server->Stop();	
+#endif
 		m_webServer->Stop();
 	}
 

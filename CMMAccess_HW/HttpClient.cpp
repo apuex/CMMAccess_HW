@@ -30,7 +30,7 @@ namespace CMM
 
 	}
 
-	void CHttpClient::Start(const char* url)
+	void CHttpClient::Start()
 	{
 		//m_pUser = url;
 	}

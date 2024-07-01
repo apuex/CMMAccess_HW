@@ -23,6 +23,8 @@
 #include "HttpClient.h"
 #include "HttpServer.h"
 #include "WebServer.h"
+#include "UdpClient.h"
+#include "UdpServer.h"
 using namespace Poco;
 using namespace ISFIT;
 using namespace CMM;
@@ -61,7 +63,7 @@ namespace CMM{
 										CData dlyTime3, CData clearDlyTime3);
 			int UpdateParam(std::map<CData, CData>& paramMap,std::map<CData,CData>& errorMap);
 			void initialize(std::list<std::tuple<CData, CData> >& param);
-			CData describe() {return "中国移动B接口APP_V1.0.0.20240618";};	// DAHAI
+			CData describe() {return "中国移动B接口APP_V1.0.0.20240701";};	// DAHAI
 			void start();
 			void stop();
 			void unInitialize();
@@ -109,6 +111,8 @@ namespace CMM{
 			Poco::SharedPtr<CHttpClient>   m_client;
 			Poco::SharedPtr<CHttpServer>   m_server;
 			Poco::SharedPtr<CWebServer>   m_webServer;
+			Poco::SharedPtr<CUdpServer>   m_udpServer;
+			Poco::SharedPtr<CUdpClient>   m_udpClient;
 			Poco::FastMutex m_alarmMutex;
 			std::list<TAlarm> m_alarmList;
 			CMMLogFile m_log;

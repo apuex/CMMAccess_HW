@@ -49,7 +49,6 @@ namespace CMM{
 	public:
 		static CMMConfig* instance();
 		int Init();
-		bool ReadDeviceListConfig();
 		void ReadCMMConfigData();
 		CData GetParam(CData key, CData defVal);
 		int SetParam(CData key, CData val);

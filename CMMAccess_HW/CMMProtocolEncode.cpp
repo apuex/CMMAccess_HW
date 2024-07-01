@@ -215,45 +215,45 @@ namespace CMM{
 		return doc.ToString();	
 	}
 
-	CData CMMProtocolEncode::GenGeneralSetRsp(int result,CData FailureCause,CData type, std::list<CData> scucessList, std::list<CData> failList )
+	CData CMMProtocolEncode::GenGeneralSetRsp(int result, CData FailureCause, CData type, std::list<CData> scucessList, std::list<CData> failList)
 	{
-	ISFIT::CXmlDoc doc;
-	doc.Parse(CMM_RESPONSE_XML_HEAD);
-	try
-	{
-	ISFIT::CXmlElement root = doc.GetElement(CMM::Response);
-	ISFIT::CXmlElement pkType = root.GetSubElement(CMM::PK_Type);
-	pkType.GetSubElement(CMM::Name).SetElementText(type.c_str());
+		ISFIT::CXmlDoc doc;
+		doc.Parse(CMM_RESPONSE_XML_HEAD);
+		try
+		{
+			ISFIT::CXmlElement root = doc.GetElement(CMM::Response);
+			ISFIT::CXmlElement pkType = root.GetSubElement(CMM::PK_Type);
+			pkType.GetSubElement(CMM::Name).SetElementText(type.c_str());
 
-	ISFIT::CXmlElement info = root.AddSubElement(CMM::Info);			
-	//info.AddSubElement("Result").SetElementText(CMM::SUCCESS);
-	//info.AddSubElement("FailureCause").SetElementText("NULL");
-	info.AddSubElement("Result").SetElementText(result);
-	info.AddSubElement("FailureCause").SetElementText(FailureCause.c_str());
-	info.AddSubElement("FSUID").SetElementText(CMMConfig::instance()->GetFsuId().c_str());
-	ISFIT::CXmlElement Success =  info.AddSubElement("SuccessList");
-	std::list<CData>::iterator pos = scucessList.begin();
-	while(pos != scucessList.end())
-	{
-	ISFIT::CXmlElement Device = Success.AddSubElement("Device");
-	SET_XML_ATTRIBUTE(Device, "ID", (*pos).c_str());
-	pos++;
-	}
-	ISFIT::CXmlElement Failed = info.AddSubElement("FailList");
-	pos = failList.begin();
-	while(pos != failList.end())
-	{
-	ISFIT::CXmlElement Device = Failed.AddSubElement("Device");
-	SET_XML_ATTRIBUTE(Device, "ID", (*pos).c_str());
-	pos++;
-	}
-	}
-	catch (Poco::Exception& ex)
-	{
-	LogError("build login msg failed :"<<ex.message().c_str());
-	return "";
-	}
-	return doc.ToString();	
+			ISFIT::CXmlElement info = root.AddSubElement(CMM::Info);
+			//info.AddSubElement("Result").SetElementText(CMM::SUCCESS);
+			//info.AddSubElement("FailureCause").SetElementText("NULL");
+			info.AddSubElement("Result").SetElementText(result);
+			info.AddSubElement("FailureCause").SetElementText(FailureCause.c_str());
+			info.AddSubElement("FSUID").SetElementText(CMMConfig::instance()->GetFsuId().c_str());
+			ISFIT::CXmlElement Success = info.AddSubElement("SuccessList");
+			std::list<CData>::iterator pos = scucessList.begin();
+			while (pos != scucessList.end())
+			{
+				ISFIT::CXmlElement Device = Success.AddSubElement("Device");
+				SET_XML_ATTRIBUTE(Device, "ID", (*pos).c_str());
+				pos++;
+			}
+			ISFIT::CXmlElement Failed = info.AddSubElement("FailList");
+			pos = failList.begin();
+			while (pos != failList.end())
+			{
+				ISFIT::CXmlElement Device = Failed.AddSubElement("Device");
+				SET_XML_ATTRIBUTE(Device, "ID", (*pos).c_str());
+				pos++;
+			}
+		}
+		catch (Poco::Exception& ex)
+		{
+			LogError("build login msg failed :" << ex.message().c_str());
+			return "";
+		}
+		return doc.ToString();
 	}
 
 	CData CMMProtocolEncode::BuildGetDataRsp(int result,  std::map<CData, std::list<TSemaphore> > &devMap )
@@ -375,7 +375,7 @@ namespace CMM{
 		return doc.ToString();	
 	}
 
-	CData CMMProtocolEncode::BuildAalrmReportInfo(std::list<TAlarm>&alarmList)
+	CData CMMProtocolEncode::BuildAlarmReportInfo(std::list<TAlarm>&alarmList)
 	{
 		ISFIT::CXmlDoc doc;
 		doc.Parse(CMM_REQUEST_XML_HEAD);
@@ -708,6 +708,40 @@ namespace CMM{
 		catch (Poco::Exception& ex)
 		{
 			LogError("build get time failed :" << ex.message().c_str());
+			return "";
+		}
+		return doc.ToString();
+	}
+
+
+
+	CData CMMProtocolEncode::BuildDataReportTest(std::map<CData, std::list<TSemaphore>>& mapSem)
+	{
+		ISFIT::CXmlDoc doc;
+		doc.Parse(CMM_REQUEST_XML_HEAD);
+		try
+		{
+			ISFIT::CXmlElement root = doc.GetElement(CMM::Request);
+			ISFIT::CXmlElement pkType = root.GetSubElement(CMM::PK_Type);
+			pkType.GetSubElement(CMM::Name).SetElementText(CMM::method::GET_DATA);
+
+			ISFIT::CXmlElement info = root.AddSubElement(CMM::Info);
+			info.AddSubElement("FSUID").SetElementText(CMMConfig::instance()->GetFsuId().c_str());
+			ISFIT::CXmlElement DeviceList = info.AddSubElement("DeviceList");
+
+			std::map<CData, std::list<TSemaphore>>::iterator iter = mapSem.begin();
+			while (iter != mapSem.end())
+			{
+				CData deviceId = iter->first;
+				std::list<TSemaphore> semList = iter->second;
+				ISFIT::CXmlElement Device = DeviceList.AddSubElement("Device");
+				SET_XML_ATTRIBUTE(Device, "ID", deviceId.c_str());
+				iter++;
+			}
+		}
+		catch (Poco::Exception& ex)
+		{
+			LogError("build login msg failed :" << ex.message().c_str());
 			return "";
 		}
 		return doc.ToString();

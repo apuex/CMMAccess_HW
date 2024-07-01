@@ -25,7 +25,7 @@ namespace CMM
 		static CData BuildGetDataRsp(int result, std::map<CData, std::list<TSemaphore> > &devMap);
 		static CData BuildGetStorageRuleRsp(int result,  std::map<CData, std::list<TSignal> > &devMap );
 		static CData BuildGetThresholdRsp(int result, std::map<CData, std::list<TThreshold> >&devMap);			
-		static CData BuildAalrmReportInfo(std::list<TAlarm>&alarmList);
+		static CData BuildAlarmReportInfo(std::list<TAlarm>&alarmList);
 		static CData BuildDataReport(std::map<CData, std::list<TSemaphore>>& mapSem);
 		static CData BuildGetFtpInfoRsp();
 		static CData BuildSetLoginRsp(int result, CData reason, CData type);
@@ -90,6 +90,10 @@ namespace CMM
 			}
 			return doc.ToString();
 		};
+
+
+	public:
+		static CData BuildDataReportTest(std::map<CData, std::list<TSemaphore>>& mapSem);
 	};
 }
 #endif

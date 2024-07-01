@@ -693,8 +693,10 @@ namespace CMM
 							}
 							CMMConfig::instance()->SetMeteThreshold(attr, rspMeter, type);
 							rspMeterList.push_back(rspMeter);
-						}else
+						}
+						else
 						{
+							LogError("get Threshold failed meterId:" << meterId.c_str());
 							bOK=false;
 						}
 					}
@@ -761,7 +763,6 @@ namespace CMM
 		CProtocolDecode::DecodeSetThreshold(info, devMap);
 		std::map<CData, std::list<TThreshold> >::iterator pos = devMap.begin();
 		//bool bFault = false;
-		LogInfo(" devMap.size() : " << devMap.size());
 		bool bOK=false;
 		CData failedCause="NULL";
 		if(pos == devMap.end())
