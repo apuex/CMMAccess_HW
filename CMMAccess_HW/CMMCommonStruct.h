@@ -61,6 +61,10 @@ namespace CMM{
 		const char* const LogFileSize = "日志大小(Mb)";
 		const char* const LogLevel = "日志级别";
 		const char* const SoftVer = "软件版本";
+
+		const char* const UartID = "串口号";
+		const char* const SlaveID = "地址号";
+		
 	}
 const char* const Request = "Request";
 const char* const Response = "Response";

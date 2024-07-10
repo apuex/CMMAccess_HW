@@ -1,6 +1,7 @@
 //canyon 2019 09 06
 
 #include "UdpServer.h"
+#include "TransData.h"
 #include "Poco/Timespan.h"
 #include "Poco/Exception.h"
 #include "Poco/ErrorHandler.h"
@@ -8,8 +9,6 @@
 #include "CMMAccess.h"
 
 using namespace Poco::Net;
-
-#define MAX_RECEIVE_SIZE 65536
 
 namespace CMM
 {
@@ -74,25 +73,77 @@ namespace CMM
 		LogInfo("udp server listen port : " << m_listenPort);
 		while (m_bStop == false)
 		{
-			std::vector<char> buffer(MAX_RECEIVE_SIZE, 0); // 初始化为零的动态缓冲区
+			// 接收数据，尝试简单重传逻辑
+			bool received = false;
+			int recvBytes = 0;
+			int nCount = 0;
+			std::vector<uint8_t> recvBuffer(1024); // 初始大小为1024  
 			SocketAddress senderAddr;
-			int bytesReceived = m_ServerSocket.receiveFrom(buffer.data(), buffer.size(), senderAddr);
-			if (bytesReceived < 0)
+			while (true)
+			{
+				recvBytes = m_ServerSocket.receiveFrom(recvBuffer.data(), recvBuffer.size(), senderAddr);
+				if (recvBytes <= 0)
+				{
+					nCount++;
+				}
+				else if (nCount > 3)
+				{
+					received = false;
+					LogError("recv ip: " << senderAddr.host() << " data recv error. please check data retry.");
+					break;
+				}
+				else if (recvBytes == (int)recvBuffer.size())
+				{
+					// 缓冲区可能不足以容纳所有数据，增加缓冲区大小  
+					recvBuffer.resize(recvBuffer.size() * 2); // 示例：加倍缓冲区大小  
+				}
+				else if (recvBuffer.size() >= MAX_RECV_DATASIZE)
+				{
+					received = false;
+					LogError("recv ip: " << senderAddr.host() << " data is so Larger. please check data retry.");
+					break;
+				}
+				else
+				{
+					received = true;
+					break; // 收到小于缓冲区大小的数据，或发生错误  
+				}
+			}
+			if (!received)
 			{
 				std::string response = "Error receiving data.";
 				m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
+				LogError("Failed to receive data after retries.");
+			}
+			std::string recvData;
+			if (false == CTransData::UnPackageRecvData(recvBuffer, recvBytes, recvData))
+			{
+				std::string response = "request data is not able to be parsed.";
+				m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
 				continue;
 			}
+		
 			char msgBuf[CMCC_MAX_RESPONSE_BUFFER_SIZE] = {};
-			int ret = CMMAccess::instance()->DoMsgProcess(buffer.data(), msgBuf, sizeof(msgBuf));
+			int ret = CMMAccess::instance()->DoMsgProcess((char*)recvData.c_str(), msgBuf, sizeof(msgBuf));
 			if (ret < 0)
 			{
 				std::string response = "request data is not able to be parsed.";
 				m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
 				continue;
 			}
-			LogInfo("server send to client ip: "<< senderAddr.host() << " port : " <<senderAddr.port());
-			m_ServerSocket.sendTo(msgBuf,strlen(msgBuf), senderAddr);
+			LogInfo("server send to client ip: " << senderAddr.host() << " port : " << senderAddr.port());
+			try
+			{
+				CData dataBuffer = msgBuf;
+				std::vector<uint8_t> sendVec = CTransData::PackageSendData(dataBuffer);
+				m_ServerSocket.sendTo(sendVec.data(), sendVec.size(), senderAddr);
+			}
+			catch (Poco::Exception& exc)
+			{
+				
+				LogError("Exception msg: " << exc.displayText());
+				m_ServerSocket.sendTo(exc.displayText().c_str(), exc.displayText().length(), senderAddr);
+			}	
 		}
 		Stop();
 	}

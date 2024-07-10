@@ -35,6 +35,9 @@ namespace CMM{
 		CData m_RoomID;
 		CData m_RoomName;
 
+		uint16_t m_UartID;   //UDP串口 串口号
+		uint16_t m_SlaveID;  //UDP串口 地址号
+
 		std::map<CData, TDeviceInfo> m_aliasId2Info;  //设备别名ID---》设备信息
 
 		CData m_fsuVersion;

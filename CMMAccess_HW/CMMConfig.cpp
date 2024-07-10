@@ -103,6 +103,8 @@ namespace CMM{
 		m_RoomID = GetParam(CMM::param::RoomID, "");
 		m_RoomName = GetParam(CMM::param::RoomName, "");
 
+		m_UartID = (uint16_t)GetParam(CMM::param::UartID, "1").convertInt();  //UDP串口 串口号
+		m_SlaveID = (uint16_t)GetParam(CMM::param::SlaveID, "1").convertInt();  //UDP串口 地址号
 		
 		m_IgnoreAlarmLevel = GetParam(CMM::param::IgnoreAlarmLevel, "");
 		m_IgnoreAlarmLevelVec.clear();

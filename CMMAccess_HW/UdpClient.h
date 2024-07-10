@@ -33,8 +33,10 @@ namespace CMM
 		* 发送xml数据 返回1成功 -2超时 其他失败
 		*/
 		int SendXmlData(const char* url, CData xmlData, CData& recvData);
-
-
+		/*
+		* 发送心跳
+		*/
+		int SendHeart(const char* url);
 	private:
 		std::string m_pUser;
 	};

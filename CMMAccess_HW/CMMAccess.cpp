@@ -408,7 +408,7 @@ namespace CMM{
 			}
 		}
 		
-		if (1)
+		if (0)
 		{
 			std::map<CData, std::list<TSemaphore>> reqDevMap;
 			CMMConfig::instance()->GetSemaphoreConf(reqDevMap);
@@ -420,6 +420,7 @@ namespace CMM{
 				LogError("SendXmlData error." << nRet);
 				return;
 			}
+			LogInfo("clinet SendXmlData success." << responseData.c_str());
 		}
 	}
 
@@ -444,12 +445,26 @@ namespace CMM{
 	{
 #ifdef ACCESSCONTROL
 		m_registerStatus = CMM_REGISTER_SUCCESS;
+		SetLoginState(false);
 		while (m_bStart)
 		{
 			Poco::Timestamp now;
 			time_t diff = now.epochTime() - m_lastMsgTime.epochTime();
-			if (diff >= m_registerTime || CMMConfig::instance()->m_bUpdate)
+			if (diff >= m_registerTime)  //发送心跳
 			{
+				if (0 == m_udpClient->SendHeart(m_scEndPoint.c_str()))
+				{
+					m_lastMsgTime.update();
+					SetLoginState(true);
+				}
+				if (diff >= m_heartBeatTime) //超时 下线
+				{
+					SetLoginState(false);
+				}
+			}
+			if (CMMConfig::instance()->m_bUpdate)
+			{
+				
 				std::map<CData, std::list<TSemaphore>> mapSem;
 				ReportDevConf();
 				NotifySendData(mapSem);
@@ -458,7 +473,7 @@ namespace CMM{
 			}
 			ReportAlarms();
 			Test();
-			Poco::Thread::sleep(1000* 3);
+			Poco::Thread::sleep(1000* 5);
 		}
 #else
 		//Test();	
@@ -645,39 +660,8 @@ namespace CMM{
 
 	void CMMAccess::ReportDevConf()
 	{
-#ifdef ACCESSCONTROL
-		CData responseData;
 		CData devInfo = CMMProtocolEncode::ReportDevConf();
-		int nRet = m_udpClient->SendXmlData(m_scEndPoint.c_str(), devInfo, responseData);
-		if (responseData.size() <= 0 || nRet < 0)
-		{
-			LogError("SendXmlData DevConf error.");
-			return;
-		}
-#else 
-
-		if (m_registerStatus != CMM_REGISTER_SUCCESS)
-		{
-			return ;
-		}
-		CData devInfo = CMMProtocolEncode::ReportDevConf();
-		Poco::FastMutex::ScopedLock lock(m_mutex);
-		CData auth_header, token, responseData;
-		HTTPResponse response;
-		UpdateAuthHeader(devInfo, auth_header, token);
-		int nRet = m_client->SendXmlData(m_scEndPoint.c_str(), devInfo, auth_header, response, responseData);
-		if (nRet < 0)
-		{
-			LogError("SendXmlDatav DevConf error.");
-			return;
-		}
-		if (nRet != 200)
-		{
-
-			LogError("send service recv code:" << nRet << " reason:" << response.getReason().c_str());
-			return;
-		}
-#endif
+		SendRequestToServer(devInfo);
 	}
 
 	void CMMAccess::ReportAlarms()
@@ -700,7 +684,6 @@ namespace CMM{
 
 	void CMMAccess::ReportData(std::map<CData, std::list<TSemaphore>> &mapSem)
 	{
-		
 		CData reportInfo = CMMProtocolEncode::BuildDataReport(mapSem);
 		SendRequestToServer(reportInfo);
 	}
@@ -795,6 +778,11 @@ namespace CMM{
 
 	int CMMAccess::SendRequestToServer( CData &reportInfo)
 	{
+		if (m_registerStatus != CMM_REGISTER_SUCCESS)
+		{
+			return -1;
+		}
+		Poco::FastMutex::ScopedLock lock(m_mutex);
 #ifdef ACCESSCONTROL
 		CData responseData;
 		int nRet = m_udpClient->SendXmlData(m_scEndPoint.c_str(), reportInfo, responseData);
@@ -808,23 +796,21 @@ namespace CMM{
 		{
 			return -1;
 		}
-		ISFIT::CXmlElement element = doc.GetElement(CMM::Response);
-		ISFIT::CXmlElement Info = element.GetSubElement(CMM::Info);
+		ISFIT::CXmlElement Element = doc.GetElement(CMM::Response);
+		ISFIT::CXmlElement Info = Element.GetSubElement(CMM::Info);
+		ISFIT::CXmlElement Type = Element.GetSubElement(CMM::PK_Type);
 		int result = Info.GetSubElement("Result").GetElementText().convertInt();
+		CData name = Type.GetSubElement("Name").GetElementText();
 		if (result == 1)
 		{
 			return 0;
 		}
 		else
 		{
+			LogNotice(" name: " << name.c_str() << " return " << result);
 			return -1;
 		}
 #else
-		if(m_registerStatus != CMM_REGISTER_SUCCESS)
-		{
-			return -1;
-		}
-		Poco::FastMutex::ScopedLock lock(m_mutex);
 		CData auth_header, token, responseData;
 		HTTPResponse response;
 		UpdateAuthHeader(reportInfo, auth_header, token);
@@ -845,15 +831,18 @@ namespace CMM{
 		{
 			return -1;
 		}
-		ISFIT::CXmlElement element = doc.GetElement(CMM::Response);
-		ISFIT::CXmlElement Info = element.GetSubElement(CMM::Info);
+		ISFIT::CXmlElement Element = doc.GetElement(CMM::Response);
+		ISFIT::CXmlElement Info = Element.GetSubElement(CMM::Info);
+		ISFIT::CXmlElement Type = Element.GetSubElement(CMM::PK_Type);
 		int result = Info.GetSubElement("Result").GetElementText().convertInt();
+		CData name = Type.GetSubElement("Name").GetElementText();
 		if(result == 1)
 		{
 			return 0;
 		}
 		else
 		{
+			LogNotice(" name: " << name.c_str() << " return " << result);
 			return -1;
 		}
 #endif
@@ -1040,25 +1029,6 @@ namespace CMM{
 		{
 			CMMConfig::instance()->GetSemaphoreConf(mapSem);
 		}
-		/*std::map<CData, std::list<TSemaphore>> mapSem;
-		CMMConfig::instance()->GetSemaphoreConf(mapSem);*/
-		/*if (1)
-		{
-			for (auto it = mapSem.begin(); it != mapSem.end(); ++it)
-			{
-				CData devId = it->first;
-				std::list<TSemaphore> semInfos = it->second;
-				std::list<TSemaphore>::iterator iter = semInfos.begin();
-				LogNotice("send data devid:" << devId.c_str());
-				while (iter != semInfos.end())
-				{
-					TSemaphore seminfo = *iter;
-					LogNotice("semInfo -- id:" << seminfo.ID.c_str() << " number:" << seminfo.SignalNumber);
-					LogNotice("semInfo -- SetupVal:" << seminfo.SetupVal << " MeasuredVal:" << seminfo.MeasuredVal);
-					iter++;
-				}
-			}
-		}*/
 		ReportData(mapSem);
 	}
 
@@ -1260,6 +1230,11 @@ namespace CMM{
 		param.push_back(std::make_tuple(CData(CMM::param::LogLevel), CData("information")));
 		param.push_back(std::make_tuple(CData(CMM::param::SoftVer), CData("4.5.0")));
 
+#ifdef ACCESSCONTROL
+		param.push_back(std::make_tuple(CData(CMM::param::UartID), CData("1")));
+		param.push_back(std::make_tuple(CData(CMM::param::SlaveID), CData("1")));
+#endif
+
 
 		//m_datalog.AddStoreDataFunc();
 		
@@ -1411,9 +1386,16 @@ namespace CMM{
 				//CMMConfig::instance()->SetParam(CMM::param::GetMeasurementTime, val);
 				m_wirteFileTime = val.convertInt();
 			}
+			else if (key == CMM::param::UartID)
+			{
+				CMMConfig::instance()->m_UartID = (uint16_t)val.convertInt();
+			}
+			else if (key == CMM::param::SlaveID)
+			{
+				CMMConfig::instance()->m_SlaveID = (uint16_t)val.convertInt();
+			}
 		}
 		ReportDevConf();
-	
 		return ret;
 	}
 	

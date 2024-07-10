@@ -63,7 +63,7 @@ namespace CMM{
 										CData dlyTime3, CData clearDlyTime3);
 			int UpdateParam(std::map<CData, CData>& paramMap,std::map<CData,CData>& errorMap);
 			void initialize(std::list<std::tuple<CData, CData> >& param);
-			CData describe() {return "中国移动B接口APP_V1.0.0.20240701";};	// DAHAI
+			CData describe() {return "中国移动B接口APP_V1.0.0.20240710";};	// DAHAI
 			void start();
 			void stop();
 			void unInitialize();
