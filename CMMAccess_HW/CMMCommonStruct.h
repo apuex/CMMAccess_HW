@@ -33,7 +33,6 @@ namespace CMM{
 		
 		
 		const char* const FsuId  = "设备ID";
-	//	const char* const FsuCode  = "设备Code";
 		const char* const UserName = "设备账号";
 		const char* const Password = "设备密码";
 		const char* const AlgType = "散列算法";
@@ -47,23 +46,33 @@ namespace CMM{
 		const char* const LoginTimeout = "注册超时（秒）";
 		const char* const GetMeasurementTime= "监控数据文件（分）";
 		const char* const SCEndPoint = "CMM.SCEndPoint";
-		const char* const FSUEndPoint = "CMM.FSUEndPoint";
-		const char* const SCIp = "平台IP";
+		const char* const FsuEndPoint = "CMM.FSUEndPoint";
+		
 		const char* const SCDomain = "平台域名";
-		const char* const SCPort = "平台端口";
+		const char* const SCIp = "TCP平台IP";
+		const char* const SCPort = "TCP平台端口";
+		const char* const SCUdpIp = "UDP平台IP";
+		const char* const SCUdpPort = "UDP平台端口";
 		const char* const SCIpRoute = "平台路由";
-		const char* const FSUIp = "设备IP";
-		const char* const FSUPort = "设备端口";
-		const char* const WebPort = "Web服务端口";
+		const char* const FsuIp = "设备IP";
+		const char* const FsuPort = "TCP服务端口";
+		const char* const UdpPort = "UDP服务端口";
+		const char* const WebPort = "WEB服务端口";
 		const char* const DevCfgTime = "设备配置时间";
-		const char* const LoginState = "注册状态";
+		const char* const LoginState = "TCP注册状态";
+		const char* const UdpLoginState = "UDP注册状态";
 		const char* const LoginFailTime = "注册失败（小时）";
 		const char* const LogFileSize = "日志大小(Mb)";
 		const char* const LogLevel = "日志级别";
 		const char* const SoftVer = "软件版本";
 
-		const char* const UartID = "串口号";
-		const char* const SlaveID = "地址号";
+		const char* const IsUart = "是否打开串口1/0";
+		const char* const UartName = "串口名";
+		const char* const BaudRate = "串口波特率";
+		const char* const DataBit = "串口数据位";
+		const char* const Parity = "串口校验位"; 
+		const char* const StopBit = "串口停止位";
+		const char* const SlaveID = "串口地址号";
 		
 	}
 const char* const Request = "Request";

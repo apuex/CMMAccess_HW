@@ -47,19 +47,18 @@ namespace CMM{
 		m_bLoginOK = false;
 		m_heartBeatTime = 300;
 		m_registerStatus = CMM_REGISTER_FAILED;
+		m_udpRegisterStatus = CMM_REGISTER_FAILED;
 		m_RightLevel = -1;
 		m_registerTime = 60;
 		m_nRetry = 0;
-		
-#ifdef ACCESSCONTROL
+		m_bIsUart = 0;
+
+		m_webServer = new CWebServer();
 		m_udpServer = new CUdpServer();
 		m_udpClient = new CUdpClient();
-#else
-		m_server = new CHttpServer();
 		m_client = new CHttpClient();
-#endif // ACCESSCONTROL
-		
-		m_webServer = new CWebServer();
+		m_server = new CHttpServer();
+		m_uartService = new CMMUart();
 	}
 	
 	CMMAccess* CMMAccess::instance()
@@ -304,15 +303,40 @@ namespace CMM{
 	
 	void CMMAccess::SetLoginState(bool isLoginOk)
 	{
+		if (!isLoginOk)
+		{
+			m_registerStatus = CMM_REGISTER_FAILED;
+		}
+		else
+		{
+			m_registerStatus = CMM_REGISTER_SUCCESS;
+		}
 		CData state = isLoginOk ? "成功" : "失败";
-		m_bLoginOK = isLoginOk;
 		CData oldState = CMMConfig::instance()->GetParam(CMM::param::LoginState, "");
 		if (oldState != state)
 		{
 			CMMConfig::instance()->SetParam(CMM::param::LoginState, state);
 		}
 		CData newState = CMMConfig::instance()->GetParam(CMM::param::LoginState, "");
-		LogInfo("newState: " << newState.c_str());
+	}
+
+	void CMMAccess::SetUdpLoginState(bool isLoginOk)
+	{
+		if (!isLoginOk)
+		{
+			m_udpRegisterStatus = CMM_REGISTER_FAILED;
+		}
+		else
+		{
+			m_udpRegisterStatus = CMM_REGISTER_SUCCESS;
+		}
+		CData state = isLoginOk ? "成功" : "失败";
+		CData oldState = CMMConfig::instance()->GetParam(CMM::param::UdpLoginState, "");
+		if (oldState != state)
+		{
+			CMMConfig::instance()->SetParam(CMM::param::UdpLoginState, state);
+		}
+		CData newState = CMMConfig::instance()->GetParam(CMM::param::UdpLoginState, "");
 	}
 
 	void CMMAccess::Test()
@@ -408,20 +432,6 @@ namespace CMM{
 			}
 		}
 		
-		if (0)
-		{
-			std::map<CData, std::list<TSemaphore>> reqDevMap;
-			CMMConfig::instance()->GetSemaphoreConf(reqDevMap);
-			CData sendBuffer = CMMProtocolEncode::BuildDataReportTest(reqDevMap);
-			CData responseData;
-			int nRet  = m_udpClient->SendXmlData(m_scEndPoint.c_str(), sendBuffer, responseData);
-			if (responseData.size() <= 0 || nRet < 0)
-			{
-				LogError("SendXmlData error." << nRet);
-				return;
-			}
-			LogInfo("clinet SendXmlData success." << responseData.c_str());
-		}
 	}
 
 	void CMMAccess::UpdateModuleInfo()
@@ -441,52 +451,58 @@ namespace CMM{
 
 	}
 
+	void threadFunction2(void* arg)
+	{
+		CMMAccess* pThis = static_cast<CMMAccess*>(arg);
+		pThis->instance()->runEx();
+	}
+
+	void CMMAccess::runEx()
+	{
+		bool isFirst = true;
+		while (m_bStart)
+		{
+			//LogInfo("m_bIsUart " <<(int)m_bIsUart);
+			if (m_bIsUart)
+			{
+				Poco::Timestamp now;
+				time_t diff = now.epochTime() - m_lastMsgTimeBak.epochTime();
+				if (diff >= m_registerTime || isFirst)  //发送心跳
+				{
+					isFirst = false;
+					if (0 == m_udpClient->SendHeart(m_scUdpPoint.c_str()))
+					{
+						m_lastMsgTimeBak.update();
+						SetUdpLoginState(true);
+					}
+					else
+					{
+						m_lastMsgTimeBak.update();
+						SetUdpLoginState(false);
+					}
+				}
+				if (diff >= m_heartBeatTime) //超时 下线
+				{
+					m_lastMsgTimeBak.update();
+					SetUdpLoginState(false);
+				}
+			}
+			Poco::Thread::sleep(3000);
+		}
+	}
+
 	void CMMAccess::run()
 	{
-#ifdef ACCESSCONTROL
-		m_registerStatus = CMM_REGISTER_SUCCESS;
 		SetLoginState(false);
+		UpdateModuleInfo();
+		bool isFirst = true;
 		while (m_bStart)
 		{
 			Poco::Timestamp now;
 			time_t diff = now.epochTime() - m_lastMsgTime.epochTime();
-			if (diff >= m_registerTime)  //发送心跳
+			if (CMM_REGISTER_FAILED == m_registerStatus)
 			{
-				if (0 == m_udpClient->SendHeart(m_scEndPoint.c_str()))
-				{
-					m_lastMsgTime.update();
-					SetLoginState(true);
-				}
-				if (diff >= m_heartBeatTime) //超时 下线
-				{
-					SetLoginState(false);
-				}
-			}
-			if (CMMConfig::instance()->m_bUpdate)
-			{
-				
-				std::map<CData, std::list<TSemaphore>> mapSem;
-				ReportDevConf();
-				NotifySendData(mapSem);
-				CMMConfig::instance()->m_bUpdate = false;
-				m_lastMsgTime.update();
-			}
-			ReportAlarms();
-			Test();
-			Poco::Thread::sleep(1000* 5);
-		}
-#else
-		//Test();	
-		SetLoginState(false);//默认登录不成功
-		Poco::Timestamp dataCheckTime;
-		UpdateModuleInfo();
-		while(m_bStart)
-		{			
-			Poco::Timestamp now;
-			time_t diff = now.epochTime() - m_lastMsgTime.epochTime();
-			if(CMM_REGISTER_FAILED == m_registerStatus)
-			{
-				if(diff >= m_registerTime && m_nRetry <= 3)
+				if (isFirst || (diff >= m_registerTime && m_nRetry <= 3))
 				{
 					Login();
 					m_lastMsgTime.update();
@@ -498,8 +514,9 @@ namespace CMM{
 					{
 						Login();
 						m_lastMsgTime.update();
-					}		
+					}
 				}
+				isFirst = false;
 			}
 			else
 			{
@@ -512,15 +529,15 @@ namespace CMM{
 				}
 				ReportAlarms();
 				m_nRetry = 0;
-				if(diff >= (m_heartBeatTime*3))
+				if (diff >= (m_heartBeatTime))
 				{
 					SetLoginState(false);
 					Login();
 				}
 			}
-			Poco::Thread::sleep(500);
+			Poco::Thread::sleep(2000);
 		}
-#endif // DEBUG
+		stop();
 	}
 	
 	void CMMAccess::Init()
@@ -529,22 +546,17 @@ namespace CMM{
 		m_recoverPowerdownAlarmParamTimer = new ISFIT::CTimer(this, &CMMAccess::SetPowerdownAlarmParam, 1000*10, false, 0);
 		m_updateDevTimer = new ISFIT::CTimer(this, &CMMAccess::UpdateDevConf, 1000*30, true, 0);
 		m_wirteMeasurementFileTimer = new ISFIT::CTimer(this, &CMMAccess::WriteMeasureFile, 1000 * 60, true, 0);
-
-		m_registerStatus = CMM_REGISTER_FAILED;
-	
 		CMMDeviceConfig::instance()->Init();
 		CMMConfig::instance()->Init();
-		
-#ifdef ACCESSCONTROL
-		m_scEndPoint = "udp://" + CMMConfig::instance()->GetParam(CMM::param::SCIp, "1.1.1.1") + ":"
-			+ CMMConfig::instance()->GetParam(CMM::param::SCPort, "80") + "/v1/services/newLSCService";//LSCService
-#else 
+		int isUart = CMMConfig::instance()->GetParam(CMM::param::IsUart, "0").convertInt();
+		m_bIsUart = isUart > 0 ? true : false;
+
+		m_scUdpPoint = "udp://" + CMMConfig::instance()->GetParam(CMM::param::SCUdpIp, "1.1.1.1") + ":"
+			+ CMMConfig::instance()->GetParam(CMM::param::SCUdpPort, "8445") + "/v1/services/newLSCService";//LSCService
 		m_scEndPoint = "http://" + CMMConfig::instance()->GetParam(CMM::param::SCIp, "1.1.1.1") + ":"
-			+ CMMConfig::instance()->GetParam(CMM::param::SCPort, "80") + "/v1/services/newLSCService";//LSCService
-#endif
+			+ CMMConfig::instance()->GetParam(CMM::param::SCPort, "8444") + "/v1/services/newLSCService";//LSCService
 		
-		
-		m_fsuEndPoint = CMMConfig::instance()->GetParam(CMM::param::FSUEndPoint, "/v1/services/newFSUService");
+		m_fsuEndPoint = CMMConfig::instance()->GetParam(CMM::param::FsuEndPoint, "/v1/services/newFSUService");
 	
 		m_heartBeatTime =  CMMConfig::instance()->GetParam(CMM::param::HeartBeatTimeout, "300").convertInt();
 
@@ -552,27 +564,22 @@ namespace CMM{
 
 		m_wirteFileTime = CMMConfig::instance()->GetParam(CMM::param::GetMeasurementTime, "15").convertInt();
 
-		int fsuPort = CMMConfig::instance()->GetParam(CMM::param::FSUPort, "8443").convertInt();
+		int fsuPort = CMMConfig::instance()->GetParam(CMM::param::FsuPort, "8444").convertInt();
 		int webPort = CMMConfig::instance()->GetParam(CMM::param::WebPort, "8080").convertInt();
-		//int udpPort = CMMConfig::instance()->GetParam(CMM::param::UdpPort, "1234").convertInt();
-			
+		int udpPort = CMMConfig::instance()->GetParam(CMM::param::UdpPort, "8445").convertInt();
+		
 		
 		m_webServer->Start(webPort);
-		
-#ifdef ACCESSCONTROL
-		m_udpServer->Start(fsuPort);
-		m_udpClient->Start();
-#else // DEBUG
+		m_udpServer->Start(udpPort);
 		m_server->Start(fsuPort, m_fsuEndPoint);
-		m_client->Start();
-#endif
+		m_uartService->Start();
 	}
 
 	
 
 	void CMMAccess::UpdateInterval(CData interval)
 	{
-		m_heartBeatTime=interval.convertInt();
+		m_heartBeatTime = interval.convertInt();
 		CMMConfig::instance()->m_heartbeatTimeout=interval;
 		CMMConfig::instance()->SetParam(CMM::param::HeartBeatTimeout, interval);
 	}
@@ -602,13 +609,11 @@ namespace CMM{
 			{
 				m_nRetry = 5; //超时 直接置为大于3值 300s重试
 			}
-			m_registerStatus = CMM_REGISTER_FAILED;
 			SetLoginState(false);
 			return;
 		}	
 		if(nRet != 200)
 		{			
-			m_registerStatus = CMM_REGISTER_FAILED;
 			SetLoginState(false);
 			return ;
 		}
@@ -623,7 +628,6 @@ namespace CMM{
 				CMMConfig::instance()->OnUpdateCfgFileTimer();
 				CMMConfig::instance()->WriteMeasurefile();	
 			}
-			m_registerStatus = CMM_REGISTER_SUCCESS;
 			SetLoginState(true);
 			m_RightLevel = ret;
 			
@@ -632,13 +636,11 @@ namespace CMM{
 		}
 		else if (ret == 3) //token 或 认证出错
 		{
-			m_registerStatus = CMM_REGISTER_FAILED;
 			SetLoginState(false);
 			LogError("cmm login failed verify to Authorization :" << ret);
 		}
 		else
 		{
-			m_registerStatus = CMM_REGISTER_FAILED;
 			SetLoginState(false);
 			LogError("cmm login faild right level:"<<ret);
 		}		
@@ -646,14 +648,12 @@ namespace CMM{
 
 	int CMMAccess::DoMsgProcess( char* request, char* response, int size )
 	{
-		LogInfo(" recv request:"   << request);
 		memset(response,0,strlen(response));
 		return m_msgProcess.OnMsgProcess(request, response, size);
 	}
 
 	int CMMAccess::DoMsgProcess_Error(char* request, char* response, int size)
 	{
-		LogInfo("recv request error:" << request);
 		memset(response, 0, strlen(response));
 		return m_msgProcess.OnMsgProcess_Error(request, response, size);
 	}
@@ -776,19 +776,27 @@ namespace CMM{
 		return 0;
 	}
 
-	int CMMAccess::SendRequestToServer( CData &reportInfo)
+	int CMMAccess::SendRequestToServer(CData& reportInfo)
 	{
+		Poco::FastMutex::ScopedLock lock(m_mutex);
+
 		if (m_registerStatus != CMM_REGISTER_SUCCESS)
 		{
 			return -1;
 		}
-		Poco::FastMutex::ScopedLock lock(m_mutex);
-#ifdef ACCESSCONTROL
-		CData responseData;
-		int nRet = m_udpClient->SendXmlData(m_scEndPoint.c_str(), reportInfo, responseData);
+		CData auth_header, token, responseData;
+		HTTPResponse response;
+		UpdateAuthHeader(reportInfo, auth_header, token);
+		int nRet = m_client->SendXmlData(m_scEndPoint.c_str(), reportInfo, auth_header, response, responseData);
 		if (nRet < 0)
 		{
 			LogError("SendXmlData error.");
+			return -1;
+		}
+		if (nRet != 200)
+		{
+
+			LogError("send service recv code:" << nRet << " reason:" << response.getReason().c_str());
 			return -1;
 		}
 		ISFIT::CXmlDoc doc;
@@ -810,42 +818,7 @@ namespace CMM{
 			LogNotice(" name: " << name.c_str() << " return " << result);
 			return -1;
 		}
-#else
-		CData auth_header, token, responseData;
-		HTTPResponse response;
-		UpdateAuthHeader(reportInfo, auth_header, token);
-		int nRet = m_client->SendXmlData(m_scEndPoint.c_str(), reportInfo, auth_header, response, responseData);
-		if (nRet < 0)
-		{
-			LogError("SendXmlData error.");
-			return -1;
-		}
-		if (nRet != 200)
-		{
-
-			LogError("send service recv code:" << nRet << " reason:" << response.getReason().c_str());
-			return -1;
-		}
-		ISFIT::CXmlDoc doc;
-		if(doc.Parse(responseData.c_str()) < 0)
-		{
-			return -1;
-		}
-		ISFIT::CXmlElement Element = doc.GetElement(CMM::Response);
-		ISFIT::CXmlElement Info = Element.GetSubElement(CMM::Info);
-		ISFIT::CXmlElement Type = Element.GetSubElement(CMM::PK_Type);
-		int result = Info.GetSubElement("Result").GetElementText().convertInt();
-		CData name = Type.GetSubElement("Name").GetElementText();
-		if(result == 1)
-		{
-			return 0;
-		}
-		else
-		{
-			LogNotice(" name: " << name.c_str() << " return " << result);
-			return -1;
-		}
-#endif
+		return 0;
 	}
 
 	void CMMAccess::UpdateDevConf(int arg)
@@ -853,7 +826,8 @@ namespace CMM{
 		if(CMMConfig::instance()->OnUpdateCfgFileTimer())
 		{
 			//ReportDevConf();
-			CMMConfig::instance()->m_bUpdate = true;				
+			CMMConfig::instance()->m_bUpdate = true;	
+			CMMConfig::instance()->m_bUpdateBak = true;
 		}
 	}
 
@@ -983,7 +957,6 @@ namespace CMM{
 		APPAPI::SetMeterParam("111001", "118336001","msj", paramMap);
 	}
 
-
 	void CMMAccess::NotifyAlarm(std::map<CData, CData>& msg)
 	{	
 		std::list<CData> devIdList;
@@ -1017,6 +990,7 @@ namespace CMM{
 					pos++;
 				}
 				m_alarmList.push_back(alarm);
+				m_alarmListBak = m_alarmList;
 				m_log.log(alarm);
 				LogInfo("=======m_alarmList.push_back:"<<seq);
 			}
@@ -1105,11 +1079,6 @@ namespace CMM{
 		}		
 	}
 	
-	void CMMAccess::TestStart(int arg)
-	{
-	
-	}
-
 	void CMMAccess::initialize(std::list<std::tuple<CData, CData> >& param)
 	{
 		CData appDataDir = "/appdata";
@@ -1207,34 +1176,46 @@ namespace CMM{
 			ISFIT::Shell("ln -s " + upgradeDir + "  /upgrade");
 			LogInfo("======/upgrade not exists, create it====");
 		}
+		param.push_back(std::make_tuple(CData(CMM::param::LoginState), CData("失败")));
+		param.push_back(std::make_tuple(CData(CMM::param::UdpLoginState), CData("失败")));
 
 		param.push_back(std::make_tuple(CData(CMM::param::FsuId), CData("00-53-4C-00-01-44")));
 		param.push_back(std::make_tuple(CData(CMM::param::UserName), CData("zhtest")));
 		param.push_back(std::make_tuple(CData(CMM::param::Password), CData("mKnxGe@9g*%8")));
 		param.push_back(std::make_tuple(CData(CMM::param::FtpUsr), CData("root")));
 		param.push_back(std::make_tuple(CData(CMM::param::FtpPasswd), CData("aga2ForIot!")));
-		param.push_back(std::make_tuple(CData(CMM::param::FSUPort), CData("8443")));
+		param.push_back(std::make_tuple(CData(CMM::param::IsUart), CData("0")));
+
+		param.push_back(std::make_tuple(CData(CMM::param::FsuPort), CData("8444")));
+		param.push_back(std::make_tuple(CData(CMM::param::UdpPort), CData("8445")));
+		param.push_back(std::make_tuple(CData(CMM::param::WebPort), CData("8080")));
+
 		param.push_back(std::make_tuple(CData(CMM::param::SCIp), CData("36.133.176.228")));
 		param.push_back(std::make_tuple(CData(CMM::param::SCPort), CData("28006")));
-		param.push_back(std::make_tuple(CData(CMM::param::SCIpRoute), CData("eth0")));
-		param.push_back(std::make_tuple(CData(CMM::param::WebPort), CData("8080")));
+		param.push_back(std::make_tuple(CData(CMM::param::SCUdpIp), CData("192.168.1.168")));
+		param.push_back(std::make_tuple(CData(CMM::param::SCUdpPort), CData("8445")));
+		
 		param.push_back(std::make_tuple(CData(CMM::param::SiteID), CData("5101072000001")));
 		param.push_back(std::make_tuple(CData(CMM::param::SiteName), CData("川成都高升桥枢纽站")));
 		param.push_back(std::make_tuple(CData(CMM::param::RoomID), CData("000000011")));
 		param.push_back(std::make_tuple(CData(CMM::param::RoomName), CData("室内汇聚机房")));
+
 		param.push_back(std::make_tuple(CData(CMM::param::GetMeasurementTime), CData("15")));
 		param.push_back(std::make_tuple(CData(CMM::param::HeartBeatTimeout), CData("300")));
 		param.push_back(std::make_tuple(CData(CMM::param::LoginTimeout), CData("60")));	
-		param.push_back(std::make_tuple(CData(CMM::param::LoginState), CData("失败")));
+		
+		param.push_back(std::make_tuple(CData(CMM::param::SoftVer), CData("4.5.0")));
 		param.push_back(std::make_tuple(CData(CMM::param::LogFileSize), CData("1")));
 		param.push_back(std::make_tuple(CData(CMM::param::LogLevel), CData("information")));
-		param.push_back(std::make_tuple(CData(CMM::param::SoftVer), CData("4.5.0")));
 
-#ifdef ACCESSCONTROL
-		param.push_back(std::make_tuple(CData(CMM::param::UartID), CData("1")));
+		param.push_back(std::make_tuple(CData(CMM::param::UartName), CData("BottomBoard_Uart6")));
+		param.push_back(std::make_tuple(CData(CMM::param::BaudRate), CData("9600")));
+		param.push_back(std::make_tuple(CData(CMM::param::DataBit), CData("8")));
+		param.push_back(std::make_tuple(CData(CMM::param::Parity), CData("N")));
+		param.push_back(std::make_tuple(CData(CMM::param::StopBit), CData("1")));
 		param.push_back(std::make_tuple(CData(CMM::param::SlaveID), CData("1")));
-#endif
 
+		//param.push_back(std::make_tuple(CData(CMM::param::SCIpRoute), CData("eth0")));
 
 		//m_datalog.AddStoreDataFunc();
 		
@@ -1282,15 +1263,24 @@ namespace CMM{
 					errorMap[key] = "setftppwd_error";
 				}
 			}
-			else if (key == CMM::param::FSUIp)
+			else if (key == CMM::param::IsUart)
+			{
+				m_bIsUart = val.convertInt() > 0 ? true : false;
+			}
+			else if (key == CMM::param::FsuIp)
 			{
 				CMMConfig::instance()->SetFsuIp(val);
-				//CMMConfig::instance()->SetParam(CMM::param::FSUIp, val);
+				//CMMConfig::instance()->SetParam(CMM::param::FsuIp, val);
 			}
-			else if (key == CMM::param::FSUPort)
+			else if (key == CMM::param::FsuPort)
 			{
 				CMMConfig::instance()->SetFsuPort(val);
 				m_server->ListenPortChange(val.convertInt());
+			}
+			else if (key == CMM::param::UdpPort)
+			{
+				CMMConfig::instance()->SetUdpPort(val);
+				m_udpServer->ListenPortChange(val.convertInt());
 			}
 			else if (key == CMM::param::WebPort)
 			{
@@ -1301,16 +1291,12 @@ namespace CMM{
 				CData scIp = resolveDomainToIp(val.c_str());
 				CMMConfig::instance()->m_scIp = scIp;
 				//CMMConfig::instance()->SetParam(CMM::param::SCIp, val);
-#ifdef ACCESSCONTROL
-				CData scEndPoint = "udp://" + scIp + ":" + CMMConfig::instance()->m_scPort + "/v1/services/newLSCService";
-#else // ACCESSCONTROL
-				CData scEndPoint = "http://" + scIp + ":" + CMMConfig::instance()->m_scPort + "/v1/services/newLSCService";
-#endif
-				
+				CData scEndPoint;
+				scEndPoint = "http://" + scIp + ":" + CMMConfig::instance()->m_scPort + "/v1/services/newLSCService";
 				if (m_scEndPoint != scEndPoint)
 				{
 					m_scEndPoint = scEndPoint;
-					m_registerStatus = CMM::CMM_REGISTER_FAILED; //sc地址如果发生变化 重新注册
+					LogInfo("change tcp dst host:" << m_scEndPoint);
 					SetLoginState(false);
 				}
 			}
@@ -1318,15 +1304,39 @@ namespace CMM{
 			{
 				CMMConfig::instance()->m_scPort = val;
 				//CMMConfig::instance()->SetParam(CMM::param::SCPort, val);
-#ifdef ACCESSCONTROL
-				CData scEndPoint = "udp://" + CMMConfig::instance()->m_scIp + ":" + val + "/v1/services/newLSCService";
-#else // ACCESSCONTROL
-				CData scEndPoint = "http://" + CMMConfig::instance()->m_scIp + ":" + val + "/v1/services/newLSCService";
-#endif
+				CData scEndPoint;
+				scEndPoint = "http://" + CMMConfig::instance()->m_scIp + ":" + val + "/v1/services/newLSCService";
 				if (m_scEndPoint != scEndPoint)
 				{
 					m_scEndPoint = scEndPoint;
-					m_registerStatus = CMM::CMM_REGISTER_FAILED; //sc地址如果发生变化 重新注册
+					LogInfo("change tcp dst host:" << m_scEndPoint);
+					SetLoginState(false);
+				}
+			}
+			else if (key == CMM::param::SCUdpIp)
+			{
+				CData scIp = resolveDomainToIp(val.c_str());
+				CMMConfig::instance()->m_scUdpIp = scIp;
+				//CMMConfig::instance()->SetParam(CMM::param::SCIp, val);
+				CData scUdpPoint;
+				scUdpPoint = "udp://" + scIp + ":" + CMMConfig::instance()->m_scUdpPort + "/v1/services/newLSCService";
+				if (m_scUdpPoint != scUdpPoint)
+				{
+					m_scUdpPoint = scUdpPoint;
+					LogInfo("change udp dst host:" << m_scUdpPoint);
+					SetLoginState(false);
+				}
+			}
+			else if (key == CMM::param::SCUdpPort)
+			{
+				CMMConfig::instance()->m_scUdpPort = val;
+				//CMMConfig::instance()->SetParam(CMM::param::SCPort, val);
+				CData scUdpPoint;
+				scUdpPoint = "udp://" + CMMConfig::instance()->m_scUdpIp + ":" + val + "/v1/services/newLSCService";
+				if (m_scUdpPoint != scUdpPoint)
+				{
+					m_scUdpPoint = scUdpPoint;
+					LogInfo("change udp dst host:" << m_scUdpPoint);
 					SetLoginState(false);
 				}
 			}
@@ -1386,13 +1396,29 @@ namespace CMM{
 				//CMMConfig::instance()->SetParam(CMM::param::GetMeasurementTime, val);
 				m_wirteFileTime = val.convertInt();
 			}
-			else if (key == CMM::param::UartID)
+			else if (key == CMM::param::UartName)
 			{
-				CMMConfig::instance()->m_UartID = (uint16_t)val.convertInt();
+				m_uartService->setUartName(val.c_str());
+			}
+			else if (key == CMM::param::BaudRate)
+			{
+				m_uartService->setBaudrate(val.convertInt());
+			}
+			else if (key == CMM::param::DataBit)
+			{
+				m_uartService->setDataBits(val.convertInt());
+			}
+			else if (key == CMM::param::StopBit)
+			{
+				m_uartService->setStopBits(val.convertInt());
+			}
+			else if (key == CMM::param::Parity)
+			{
+				m_uartService->setParity(val.c_str());
 			}
 			else if (key == CMM::param::SlaveID)
 			{
-				CMMConfig::instance()->m_SlaveID = (uint16_t)val.convertInt();
+				m_uartService->setSlaveID(val.convertInt());
 			}
 		}
 		ReportDevConf();
@@ -1411,6 +1437,7 @@ namespace CMM{
 		m_bStart = true;
 		Init();
 		m_thread.start(*this);
+		m_secondThread.start(threadFunction2, this);
 		LogInfo("======>CMMAccess start ok====>");
 	}
 
@@ -1420,18 +1447,22 @@ namespace CMM{
 		m_bStart = false;
 		DeInit();
 		m_thread.join();
+		m_secondThread.join();
 		SetLoginState(false);
+		SetUdpLoginState(false);
 		LogInfo("=== CMMAccess stop ok ====");	
 	}
 	
 	void CMMAccess::DeInit()
 	{
-#ifdef ACCESSCONTROL
-		m_udpServer->Stop();
-#else // ACCESSCONTROL
-		m_server->Stop();	
-#endif
-		m_webServer->Stop();
+		if(m_udpServer)
+			m_udpServer->Stop();
+		if(m_server)
+			m_server->Stop();	
+		if (m_uartService)
+			m_uartService->Stop();
+		if(m_webServer)
+			m_webServer->Stop();
 	}
 
 	void CMMAccess::unInitialize()
@@ -1553,5 +1584,18 @@ namespace CMM{
 		return domainIp;
 	}
 
+	bool CMMAccess::SendUartDataToSC(std::vector<uint8_t>& sendBuffer)
+	{
+		if (0 > m_udpClient->SendData(m_scUdpPoint.c_str(), sendBuffer))
+			return false;
+		return true;
+	}
+
+	bool CMMAccess::writeDataToUart(std::vector<uint8_t>& sendBuffer)
+	{
+		if (!m_uartService->writeData(sendBuffer))
+			return false;
+		return true;
+	}
 }
 

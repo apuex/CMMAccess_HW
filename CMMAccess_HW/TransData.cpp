@@ -2,6 +2,7 @@
 
 #include "TransData.h"
 #include "CMMConfig.h"
+#include "CMMAccess.h"
 #include "CLog.h"
 //#include "openssl/openssl-1.1.1d/crypto/include/internal/sm3.h"
 #include <string>
@@ -110,10 +111,10 @@ namespace CMM
 		return checksum;
 	}
 
-	std::vector<uint8_t> CTransData::PackageSendData(CData& xmlData)
+	std::vector<uint8_t> CTransData::PackageSendData(std::vector<uint8_t>& uartData)
 	{
 		
-		int nMaxPackageSize = 40 + xmlData.size();
+		int nMaxPackageSize = 40 + uartData.size();
 		std::vector<uint8_t>    packet;
 		packet.reserve(nMaxPackageSize);
 		packet.push_back(0xFF);
@@ -121,9 +122,9 @@ namespace CMM
 			packet.push_back(0x00);          //sc地址
 		
 		CData fsuId = CMMConfig::instance()->GetFsuId();
-		if (xmlData.size() <= 0 || fsuId.size() <= 0)
+		if (uartData.size() <= 0 || fsuId.size() <= 0)
 		{
-			LogError("sendData length is so short : "<< xmlData.size() <<"  or fsuid is null.");
+			LogError("sendData length is so short : "<< uartData.size() <<"  or fsuid is null.");
 			throw std::runtime_error("An error occurred while getting data");
 		}
 			
@@ -137,23 +138,28 @@ namespace CMM
 		}
 
 		packet.push_back(0x01);    //子设备类型
-		packet.push_back(0x11);    //串口号+地址号
+		uint8_t p_uart = ((CMMAccess::instance()->m_uartService->getUartID() & 0xf) << 4) | (CMMAccess::instance()->m_uartService->m_slaveID & 0xf);
+		LogInfo("p_uart: " << (int)p_uart);
+		packet.push_back(p_uart);    //串口号+地址号
 
-		uint16_t p_len = 5 + xmlData.size();
-		packet.push_back((p_len>>8)&0xff);
+		uint16_t p_len = 5 + uartData.size();
+		
 		packet.push_back(p_len & 0xff);  //协议族数据包长度
+		packet.push_back((p_len >> 8) & 0xff);
 
 		packet.push_back(0x00);   //应答类型
 		uint16_t command_id = 0x0001;
-		packet.push_back((command_id >> 8) & 0xff);
+		
 		packet.push_back(command_id & 0xff);  //命令编号
+		packet.push_back((command_id >> 8) & 0xff);
 
-		uint16_t t_len = static_cast<uint16_t>(xmlData.size());
-		packet.push_back((t_len >> 8) & 0xff);
+		uint16_t t_len = static_cast<uint16_t>(uartData.size());
 		packet.push_back(t_len & 0xff); //xmldata数据长度
+		packet.push_back((t_len >> 8) & 0xff);
+
 		for (uint16_t i = 0; i < t_len ; ++i)
 		{
-			packet.push_back(static_cast<uint8_t>(xmlData[i]));   //xmldata
+			packet.push_back(uartData[i]);   //xmldata
 		}
 		uint8_t p_verify = CalculateXORChecksum(packet, 1 ,0);
 		packet.push_back(p_verify);   //校验
@@ -192,17 +198,22 @@ namespace CMM
 		}
 
 		packet.push_back(0x01);    //子设备类型
-		uint8_t p_uart = ((CMMConfig::instance()->m_UartID & 0xf) << 4) | (CMMConfig::instance()->m_SlaveID & 0xf);
+		uint8_t p_uart = ((CMMAccess::instance()->m_uartService->getUartID() & 0xf) << 4) | (CMMAccess::instance()->m_uartService->m_slaveID & 0xf);
+		LogInfo("p_uart: " << (int)p_uart);
 		packet.push_back(p_uart);    //串口号+地址号
 
 		uint16_t p_len = 3;
-		packet.push_back((p_len >> 8) & 0xff);
+		//packet.push_back((p_len >> 8) & 0xff);
+		//packet.push_back(p_len & 0xff);  //协议族数据包长度
 		packet.push_back(p_len & 0xff);  //协议族数据包长度
+		packet.push_back((p_len >> 8) & 0xff);
+		
 
 		packet.push_back(0xED);   //RtnFlag
 		uint16_t command_id = 0x0002;
-		packet.push_back((command_id >> 8) & 0xff);
+		
 		packet.push_back(command_id & 0xff);  //命令编号
+		packet.push_back((command_id >> 8) & 0xff);
 
 		uint8_t p_verify = CalculateXORChecksum(packet, 1, 0);
 		packet.push_back(p_verify);   //校验
@@ -215,7 +226,7 @@ namespace CMM
 		return packet_out;
 	}
 
-	bool CTransData::UnPackageRecvData(std::vector<uint8_t>& recvData,int recvLen,std::string& outData)
+	bool CTransData::UnPackageRecvData(std::vector<uint8_t>& recvData,int recvLen, std::vector<uint8_t>& outData)
 	{
 		if (recvLen < 40)
 		{
@@ -244,17 +255,16 @@ namespace CMM
 			fsuid[i] = packet_out[i + 1];
 			//fsuid[i] = packet_out[i + 9];
 		std::string strFsuID(fsuid.begin(), fsuid.end());
-		LogInfo("strFsuID: " << strFsuID);
-		if (CMMConfig::instance()->GetFsuId().compare(strFsuID) != 0)
+		/*if (CMMConfig::instance()->GetFsuId().compare(strFsuID) != 0)
 		{
-			LogError("config fsuid :" << CMMConfig::instance()->GetFsuId().c_str() << " is different from recv fsuid: " << fsuid.data());
+			LogError("config fsuid :" << CMMConfig::instance()->GetFsuId().c_str() << " is different from recv fsuid: " << strFsuID.c_str());
 			return false;
-		}
-		int16_t xmlLen = (static_cast<uint16_t>(packet_out[36]) << 8) | static_cast<uint16_t>(packet_out[37]);
-		std::vector<uint8_t> outdata(xmlLen, 0);
-		for (int i = 0; i < xmlLen; ++i)
-			outdata[i] = packet_out[38 + i];
-		outData.assign(outdata.begin(), outdata.end());
+		}*/
+		int16_t xmlLen = (static_cast<uint16_t>(packet_out[37]) << 8) | static_cast<uint16_t>(packet_out[36]);
+		
+		for (int16_t i = 0; i < xmlLen; ++i)
+			outData.push_back(packet_out[38 + i]);	
+		LogInfo("recv data unpack size:" << xmlLen << " outData:"<< outData.size());
 		return true;
 	}
 

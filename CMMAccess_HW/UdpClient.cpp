@@ -18,10 +18,6 @@ using namespace Poco::Net;
 namespace CMM
 {
 
-
-
-
-
 	CUdpClient::CUdpClient()
 	{
 
@@ -37,7 +33,7 @@ namespace CMM
 		//m_pUser = url;
 	}
 
-	int CUdpClient::SendXmlData(const char* url, CData xmlData, CData& recvData)
+	int CUdpClient::SendData(const char* url, std::vector<uint8_t>& uartData)
 	{
 		Poco::URI uri(url);
 		std::string serverAddress = uri.getHost();
@@ -45,11 +41,10 @@ namespace CMM
 		LogInfo("SEND data to serverAddress "<< serverAddress << " and serverPort:"<< serverPort);
 		try
 		{
-			DatagramSocket socket;
-
 			SocketAddress serverAddr(SocketAddress::IPv4, serverAddress, serverPort);
-
-			std::vector<uint8_t> sendData = CTransData::PackageSendData(xmlData);
+			auto& socket = SingletonSocket::instance().getSocket();
+			socket.setReceiveTimeout(Poco::Timespan(5, 0));
+			std::vector<uint8_t> sendData = CTransData::PackageSendData(uartData);
 			int sentBytes = socket.sendTo(sendData.data(), sendData.size(), serverAddr);
 			if (sentBytes < 0)
 			{
@@ -60,8 +55,7 @@ namespace CMM
 			bool received = false;
 			int recvBytes = 0;
 			int nCount = 0;
-			std::vector<uint8_t> recvBuffer; // 初始大小为1024  
-			recvBuffer.resize(1024);
+			std::vector<uint8_t> recvBuffer(1024); // 初始大小为1024  
 			while (true) 
 			{
 				SocketAddress senderAddr;
@@ -98,14 +92,15 @@ namespace CMM
 				LogError("Failed to receive data after retries.");
 				return -2;
 			}
-			std::string strRecv;
+			std::string strLen(recvBuffer.begin(), recvBuffer.end());
+			LogInfo("recv server response:" << strLen.c_str());
+			/*std::string strRecv;
 			if (!CTransData::UnPackageRecvData(recvBuffer, recvBytes, strRecv))
 			{
 				LogError("Failed to :UnPackageRecvData.");
 				return -3;
 			}
-			recvData = strRecv.c_str();
-			socket.close();
+			recvData = strRecv.c_str();*/
 		}
 		catch (Poco::Exception& exc)
 		{
@@ -120,12 +115,13 @@ namespace CMM
 		Poco::URI uri(url);
 		std::string serverAddress = uri.getHost();
 		int serverPort = uri.getPort();
+		LogInfo("SEND Heart to serverAddress " << serverAddress << " and serverPort:" << serverPort);
 		try
 		{
-			DatagramSocket socket;
-
+			
 			SocketAddress serverAddr(SocketAddress::IPv4, serverAddress, serverPort);
-
+			auto& socket = SingletonSocket::instance().getSocket();
+			socket.setReceiveTimeout(Poco::Timespan(5, 0));
 			std::vector<uint8_t> sendData = CTransData::PackageSendHeart();
 			int sentBytes = socket.sendTo(sendData.data(), sendData.size(), serverAddr);
 			if (sentBytes < 0)
@@ -133,7 +129,30 @@ namespace CMM
 				LogError("send msg error: " << sentBytes);
 				return -1;
 			}
-			socket.close();
+			SocketAddress senderAddr;
+			std::vector<uint8_t> recvBuffer(200,0); // 初始大小为1024  
+			bool received = false;
+			while (true) 
+			{
+				int recvBytes = socket.receiveFrom(recvBuffer.data(), recvBuffer.size(), senderAddr);
+				if (recvBytes <= 0)
+				{
+					received = false;
+					break;
+				}
+				else
+				{
+					received = true;
+					break; // 收到小于缓冲区大小的数据，或发生错误  
+				}	
+			}
+			if (!received)
+			{
+				LogError("Failed to receive data after retries.");
+				return -2;
+			}
+			std::string strLen(recvBuffer.begin(), recvBuffer.end());
+			LogInfo("recv heart:" << strLen.c_str());
 		}
 		catch (Poco::Exception& exc)
 		{

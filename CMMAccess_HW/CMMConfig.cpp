@@ -28,9 +28,9 @@ namespace CMM{
 
 	CMMConfig* CMMConfig::instance()
 	{
-		if(_instance == NULL){
+		if(_instance == NULL)
+		{
 			_instance = new CMMConfig();
-			_instance->m_bUpdate=true;
 		}
 		return _instance;
 	}
@@ -85,8 +85,8 @@ namespace CMM{
 
 		m_fsuId = GetParam(CMM::param::FsuId, "");
 		//m_FsuCode = GetParam(CTower::param::FsuCode, "");
-		m_fsuIp = GetParam(CMM::param::FSUIp, "");
-		m_fsuPort = GetParam(CMM::param::FSUPort, "");
+		m_fsuIp = GetParam(CMM::param::FsuIp, "");
+		m_fsuPort = GetParam(CMM::param::FsuPort, "");
 		m_fsuConfigTime = GetParam(CMM::param::DevCfgTime, "");
 
 		m_userName = GetParam(CMM::param::UserName, "");
@@ -96,16 +96,15 @@ namespace CMM{
 	
 		m_scIp =  GetParam(CMM::param::SCIp, "");
 		m_scPort =  GetParam(CMM::param::SCPort, "");
+	    m_scUdpIp = GetParam(CMM::param::SCUdpIp, "");
+		m_scUdpPort = GetParam(CMM::param::SCUdpPort, "");
 		m_scIpRoute =  GetParam(CMM::param::SCIpRoute, "");
 
 		m_SiteID = GetParam(CMM::param::SiteID, "");
 		m_SiteName = GetParam(CMM::param::SiteName, "");
 		m_RoomID = GetParam(CMM::param::RoomID, "");
 		m_RoomName = GetParam(CMM::param::RoomName, "");
-
-		m_UartID = (uint16_t)GetParam(CMM::param::UartID, "1").convertInt();  //UDP串口 串口号
-		m_SlaveID = (uint16_t)GetParam(CMM::param::SlaveID, "1").convertInt();  //UDP串口 地址号
-		
+	
 		m_IgnoreAlarmLevel = GetParam(CMM::param::IgnoreAlarmLevel, "");
 		m_IgnoreAlarmLevelVec.clear();
 		if(m_IgnoreAlarmLevel.length()>0)
@@ -334,6 +333,7 @@ namespace CMM{
 		ReadDevCfgFromObj(devIdList);
 		SaveFile();
 		m_bUpdate=true;
+		m_bUpdateBak = true;
 	}
 
 	//canyon
@@ -779,6 +779,11 @@ namespace CMM{
 	void CMMConfig::SetFsuPort( CData port )
 	{
 		m_fsuPort = port;
+	}
+
+	void CMMConfig::SetUdpPort(CData port)
+	{
+		m_udpPort = port;
 	}
 
 	CData CMMConfig::GetFsuPort()

@@ -21,8 +21,11 @@ namespace CMM{
 		CData m_ftpPasswd;
 		CData m_fsuIp;
 		CData m_fsuPort;
+		CData m_udpPort;
 		CData m_scIp;
 		CData m_scPort;
+		CData m_scUdpIp;
+		CData m_scUdpPort;
 		CData m_scIpRoute;
 		CData m_fsuConfigTime;
 	
@@ -34,14 +37,11 @@ namespace CMM{
 		CData m_SiteName;
 		CData m_RoomID;
 		CData m_RoomName;
-
-		uint16_t m_UartID;   //UDP串口 串口号
-		uint16_t m_SlaveID;  //UDP串口 地址号
-
 		std::map<CData, TDeviceInfo> m_aliasId2Info;  //设备别名ID---》设备信息
 
 		CData m_fsuVersion;
 		bool m_bUpdate;
+		bool m_bUpdateBak;
 		
 		CData m_IgnoreAlarmLevel;
 		std::vector<int> m_IgnoreAlarmLevelVec;
@@ -62,6 +62,7 @@ namespace CMM{
 		CData GetFsuId();
 		void SetFsuId(CData fsuId);
 		void SetFsuPort(CData port);
+		void SetUdpPort(CData port);
 		CData GetFsuPort();
 		CData GetFsuIp();
 		void SetFsuIp(CData ip);

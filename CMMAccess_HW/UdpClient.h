@@ -22,6 +22,32 @@ using namespace Poco::Net;
 namespace CMM
 {
 
+	class SingletonSocket {
+	public:
+		static SingletonSocket& instance() {
+			static SingletonSocket singleton; // 静态局部变量，线程安全初始化
+			return singleton;
+		}
+
+		DatagramSocket& getSocket() {
+			return socket_;
+		}
+
+	private:
+		DatagramSocket socket_;
+
+		SingletonSocket() {
+			socket_.bind(SocketAddress(SocketAddress::IPv4, "0.0.0.0", 0));
+		}
+
+		~SingletonSocket() {
+			socket_.close();
+		}
+
+		SingletonSocket(const SingletonSocket&) = delete;
+		SingletonSocket& operator=(const SingletonSocket&) = delete;
+	};
+
 	class CUdpClient 
 	{
 
@@ -30,9 +56,9 @@ namespace CMM
 		~CUdpClient();
 		void Start();
 		/*
-		* 发送xml数据 返回1成功 -2超时 其他失败
+		* 发送串口数据 返回1成功 -2超时 其他失败
 		*/
-		int SendXmlData(const char* url, CData xmlData, CData& recvData);
+		int SendData(const char* url, std::vector<uint8_t>& uartData);
 		/*
 		* 发送心跳
 		*/

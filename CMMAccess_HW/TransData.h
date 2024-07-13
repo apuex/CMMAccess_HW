@@ -42,7 +42,7 @@ namespace CMM
 		/*
 		* 发送xml数据打包
 		*/
-		static std::vector<uint8_t>  PackageSendData(CData& xmlData);
+		static std::vector<uint8_t>  PackageSendData(std::vector<uint8_t>&  xmlData);
 		/*
 		* 发送心跳打包
 		*/
@@ -50,7 +50,7 @@ namespace CMM
 		/*
 		* 接受解包数据
 		*/
-		static bool UnPackageRecvData(std::vector<uint8_t>& recvData, int recvBytes, std::string& outData);
+		static bool UnPackageRecvData(std::vector<uint8_t>& recvData, int recvBytes, std::vector<uint8_t>& outData);
 
 	private:
 	};

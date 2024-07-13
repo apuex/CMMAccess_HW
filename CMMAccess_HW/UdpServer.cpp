@@ -79,71 +79,69 @@ namespace CMM
 			int nCount = 0;
 			std::vector<uint8_t> recvBuffer(1024); // 初始大小为1024  
 			SocketAddress senderAddr;
-			while (true)
-			{
-				recvBytes = m_ServerSocket.receiveFrom(recvBuffer.data(), recvBuffer.size(), senderAddr);
-				if (recvBytes <= 0)
-				{
-					nCount++;
-				}
-				else if (nCount > 3)
-				{
-					received = false;
-					LogError("recv ip: " << senderAddr.host() << " data recv error. please check data retry.");
-					break;
-				}
-				else if (recvBytes == (int)recvBuffer.size())
-				{
-					// 缓冲区可能不足以容纳所有数据，增加缓冲区大小  
-					recvBuffer.resize(recvBuffer.size() * 2); // 示例：加倍缓冲区大小  
-				}
-				else if (recvBuffer.size() >= MAX_RECV_DATASIZE)
-				{
-					received = false;
-					LogError("recv ip: " << senderAddr.host() << " data is so Larger. please check data retry.");
-					break;
-				}
-				else
-				{
-					received = true;
-					break; // 收到小于缓冲区大小的数据，或发生错误  
-				}
-			}
-			if (!received)
-			{
-				std::string response = "Error receiving data.";
-				m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
-				LogError("Failed to receive data after retries.");
-			}
-			std::string recvData;
-			if (false == CTransData::UnPackageRecvData(recvBuffer, recvBytes, recvData))
-			{
-				std::string response = "request data is not able to be parsed.";
-				m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
-				continue;
-			}
-		
-			char msgBuf[CMCC_MAX_RESPONSE_BUFFER_SIZE] = {};
-			int ret = CMMAccess::instance()->DoMsgProcess((char*)recvData.c_str(), msgBuf, sizeof(msgBuf));
-			if (ret < 0)
-			{
-				std::string response = "request data is not able to be parsed.";
-				m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
-				continue;
-			}
-			LogInfo("server send to client ip: " << senderAddr.host() << " port : " << senderAddr.port());
 			try
 			{
-				CData dataBuffer = msgBuf;
-				std::vector<uint8_t> sendVec = CTransData::PackageSendData(dataBuffer);
-				m_ServerSocket.sendTo(sendVec.data(), sendVec.size(), senderAddr);
+				while (true)
+				{
+					recvBytes = m_ServerSocket.receiveFrom(recvBuffer.data(), recvBuffer.size(), senderAddr);
+					if (recvBytes <= 0)
+					{
+						nCount++;
+					}
+					else if (nCount > 3)
+					{
+						received = false;
+						LogError("recv ip: " << senderAddr.host() << " data recv error. please check data retry.");
+						break;
+					}
+					else if (recvBytes == (int)recvBuffer.size())
+					{
+						// 缓冲区可能不足以容纳所有数据，增加缓冲区大小  
+						recvBuffer.resize(recvBuffer.size() * 2); // 示例：加倍缓冲区大小  
+					}
+					else if (recvBuffer.size() >= MAX_RECV_DATASIZE)
+					{
+						received = false;
+						LogError("recv ip: " << senderAddr.host() << " data is so Larger. please check data retry.");
+						break;
+					}
+					else
+					{
+						received = true;
+						break; // 收到小于缓冲区大小的数据，或发生错误  
+					}
+				}
+				if (!received)
+				{
+					std::string response = "Failed to receive data after retries.";
+					m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
+					LogError("Failed to receive data after retries.");
+					continue;
+				}
+				std::vector<uint8_t> outBuffer;
+				outBuffer.reserve(recvBytes);
+				if (!CTransData::UnPackageRecvData(recvBuffer, recvBytes, outBuffer))
+				{
+					std::string response = "UnPackageRecvData failed.";
+					m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
+					LogError("UnPackageRecvData return false.");
+					continue;
+				}
+				LogInfo("recvBytes: " << recvBytes << " outBuffer size:" << outBuffer.size());
+				if (!CMMAccess::instance()->writeDataToUart(outBuffer))
+				{
+					std::string response = "writeDataToUart failed.";
+					m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
+					LogError("writeDataToUart false.");
+					continue;
+				}
+				std::string response = "writeDataToUart sucess.";
+				m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
 			}
 			catch (Poco::Exception& exc)
 			{
-				
 				LogError("Exception msg: " << exc.displayText());
-				m_ServerSocket.sendTo(exc.displayText().c_str(), exc.displayText().length(), senderAddr);
-			}	
+			}
 		}
 		Stop();
 	}
