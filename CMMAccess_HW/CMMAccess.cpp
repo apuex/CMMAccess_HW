@@ -477,7 +477,7 @@ namespace CMM{
 					}
 					else
 					{
-						m_lastMsgTimeBak.update();
+						//m_lastMsgTimeBak.update();
 						SetUdpLoginState(false);
 					}
 				}
@@ -535,7 +535,7 @@ namespace CMM{
 					Login();
 				}
 			}
-			Poco::Thread::sleep(2000);
+			Poco::Thread::sleep(1000);
 		}
 		stop();
 	}
