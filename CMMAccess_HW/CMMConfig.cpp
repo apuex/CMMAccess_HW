@@ -46,8 +46,8 @@ namespace CMM{
 		if (delim_len == 0) return elems;
 		while (pos < len)
 		{
-			int find_pos = s.find(delim, pos);
-			if (find_pos < 0)
+			int find_pos = s.find(delim, (int)pos);
+			if (find_pos != CDATA_NPOS)
 			{
 				elems.push_back(s.substr(pos, len - pos).convertInt());
 				break;

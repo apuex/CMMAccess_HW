@@ -106,7 +106,7 @@ namespace CMM{
 	    if( sock_mac == -1)  
 	    {  
 	        LogError("create socket falise...mac/n");  
-	        return "" ;  
+	        return mac;
 	    }  
 	      
 	    memset(&ifr_mac,0,sizeof(ifr_mac));     
@@ -115,7 +115,7 @@ namespace CMM{
 	    if( (ioctl( sock_mac, SIOCGIFHWADDR, &ifr_mac)) < 0)  
 	    {  
 	        LogError("mac ioctl error/n");  
-	        return "";  
+	        return mac;
 	    }  
 	      
 	    sprintf(mac_addr,"%02x:%02x:%02x:%02x:%02x:%02x",  
@@ -126,7 +126,7 @@ namespace CMM{
 	            (unsigned char)ifr_mac.ifr_hwaddr.sa_data[4],  
 	            (unsigned char)ifr_mac.ifr_hwaddr.sa_data[5]);  
 	  
- 	    close( sock_mac );  
+ 	    close(sock_mac);  
 	    mac = mac_addr;  
 		return mac;
 	}
@@ -336,7 +336,6 @@ namespace CMM{
 		{
 			CMMConfig::instance()->SetParam(CMM::param::UdpLoginState, state);
 		}
-		CData newState = CMMConfig::instance()->GetParam(CMM::param::UdpLoginState, "");
 	}
 
 	void CMMAccess::Test()
@@ -574,8 +573,6 @@ namespace CMM{
 		m_server->Start(fsuPort, m_fsuEndPoint);
 		m_uartService->Start();
 	}
-
-	
 
 	void CMMAccess::UpdateInterval(CData interval)
 	{
@@ -818,7 +815,6 @@ namespace CMM{
 			LogNotice(" name: " << name.c_str() << " return " << result);
 			return -1;
 		}
-		return 0;
 	}
 
 	void CMMAccess::UpdateDevConf(int arg)
@@ -849,7 +845,6 @@ namespace CMM{
 			// 将tm结构体转换为time_t（Unix时间戳）  
 			time_t t = mktime(&tmStruct);
 			return Poco::Timestamp::fromEpochTime(t);
-
 		}
 		// 解析失败，返回默认或错误的Poco::Timestamp  
 		return Poco::Timestamp();
@@ -937,7 +932,6 @@ namespace CMM{
 		//LogInfo("nCount: "<< nCount << "   m_wirteFileTime :" << m_wirteFileTime);	
 		if(nCount >= m_wirteFileTime)
 		{
-			//std::map<CData, std::list<TSemaphore>> mapSem;
 			deleteOldFiles();//执行写文件之前判断是否有3天前的文件 有则删除
 			if (CMMConfig::instance()->WriteMeasurefile())
 			{
@@ -1504,7 +1498,7 @@ namespace CMM{
 		std::string line, key, value;
 		while (std::getline(ss, line, '\n'))
 		{
-			if (line.find("Authorization:") == 0)
+			if (line.find("Authorization:") != std::string::npos)
 			{
 				Poco::RegularExpression regex(R"~(token="([^"]*)")~");
 				Poco::RegularExpression::MatchVec matches;

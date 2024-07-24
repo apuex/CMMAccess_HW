@@ -66,7 +66,6 @@ namespace CMM
 		{
 			m_HttpRequestHandlerMap.erase(it);
 		}
-
 	}
 
 
@@ -221,6 +220,7 @@ namespace CMM
 	{
 		m_bStop = true;
 		m_listenPort = -1;
+		m_pHttpServer = nullptr;
 	}
 
 

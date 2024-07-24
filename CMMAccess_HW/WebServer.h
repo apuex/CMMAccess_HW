@@ -42,8 +42,6 @@ class CWebRequestHandler : public HTTPRequestHandler
 			
 		void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response);
 	private:
-		bool _stopped;
-		Poco::FastMutex _mutex;
 		void* m_owner;
 };
 

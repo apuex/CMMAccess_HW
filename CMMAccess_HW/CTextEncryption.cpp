@@ -100,22 +100,6 @@ namespace CMM
 			}
 			outMessage = outToken;
 		}
-		else if (nType == 2)  //SM3
-		{
-			// 初始化原始数据缓冲区和SM3上下文
-			//unsigned char hash[SM3_DIGEST_LENGTH];
-			//SM3_CTX sm3;
-			//// 初始化并更新SM3上下文
-			//sm3_init(&sm3);
-			//sm3_update(&sm3, passwd.c_str(), passwd.length());
-			//// 生成SM3散列值
-			//sm3_final(hash, &sm3);
-			//// 将二进制散列值转换为大写的十六进制字符串
-			//for (int i = 0; i < SM3_DIGEST_LENGTH; ++i) {
-			//	ss << std::hex << std::uppercase << static_cast<int>(hash[i]);
-			//}
-			return false;
-		}
 		else
 		{
 			return false;

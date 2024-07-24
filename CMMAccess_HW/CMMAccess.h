@@ -80,14 +80,13 @@ namespace CMM{
 			void ReportData(std::map<CData, std::list<TSemaphore>>& mapSem);
 			bool SendUartDataToSC(std::vector<uint8_t>& sendBuffer);
 			bool writeDataToUart(std::vector<uint8_t>& sendBuffer);
-			void Test();
 		private:
 			CMMAccess();
 			void Init();
 			void DeInit();
 			void Login();
 			void UpdateModuleInfo();
-			
+		    void Test();
 			void SetLoginState(bool isLoginOk);
 			void ReportAlarms();
 			void SetPowerdownAlarmParam(int arg);

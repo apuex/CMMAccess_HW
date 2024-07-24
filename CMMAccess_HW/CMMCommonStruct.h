@@ -189,7 +189,7 @@ typedef struct  	sTSignal
 		sTSignal()
 		{
 			Type = -1; AlarmLevel=-1; savePeriod = -1; SignalNumber = 0;
-			Threshold=0.001; AbsoluteVal=0.001; RelativeVal=0.001; SetupVal = 0.001; 
+			Threshold = 0.001; AbsoluteVal = 0.001; RelativeVal = 0.001; SetupVal = 0.001; result = 0;
 		}
 	int Type;
 	CData ID;

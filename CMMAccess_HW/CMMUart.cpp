@@ -103,15 +103,15 @@ namespace CMM
     void CMMUart::setSlaveID(const int& slaveID)
     {
         std::lock_guard<std::mutex> lockGuard(m_rwLock);
-        m_slaveID = slaveID;
+        m_slaveID = (uint8_t)slaveID;
     }
 
     void CMMUart::setBaudrate(const int& baudrate)
     {
         std::lock_guard<std::mutex> lockGuard(m_rwLock);
-        if (m_baudrate != baudrate)
+        if (m_baudrate != (int32_t)baudrate)
         {
-            m_baudrate = baudrate;
+            m_baudrate = (int32_t)baudrate;
             setUartParam();
         }
     }
@@ -119,9 +119,9 @@ namespace CMM
     void CMMUart::setDataBits(const int& dataBits)
     {
         std::lock_guard<std::mutex> lockGuard(m_rwLock);
-        if (m_dataBits != dataBits)
+        if (m_dataBits != (int32_t)dataBits)
         {
-            m_dataBits = dataBits;
+            m_dataBits = (int32_t)dataBits;
             setUartParam();
         }
     }
@@ -129,9 +129,9 @@ namespace CMM
     void CMMUart::setStopBits(const int& stopBits)
     {
         std::lock_guard<std::mutex> lockGuard(m_rwLock);
-        if (m_stopBits != stopBits)
+        if (m_stopBits != (int32_t)stopBits)
         {
-            m_stopBits = stopBits;
+            m_stopBits = (int32_t)stopBits;
             setUartParam();
         }
     }

@@ -111,7 +111,8 @@ namespace CMM
 		// 查找Authorization头并解析Bearer Token
 		auto it = response.find("Authorization");
 		std::string token, key, value;
-		if (it != response.end()) {
+		if (it != response.end()) 
+		{
 			std::istringstream iss(it->second);
 			while (std::getline(iss, key, '='))
 			{
