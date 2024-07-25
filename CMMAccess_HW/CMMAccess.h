@@ -6,7 +6,6 @@
 #include "Data.h"
 #include "CMMMsgProcess.h"
 #include "NetComm/CmdController.h"
-#include "CMMDataReport.h"
 #include "CMMLogFile.h"
 #include "NetComm/ModuleVersions.h"
 
