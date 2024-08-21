@@ -37,13 +37,13 @@ int ExtAppMsgNotify(CData type, std::map<CData, CData>& msg)
 
 	}
 
-	LogInfo("type:"<<type);
+	//LogInfo("type:"<<type);
 
 	for (auto it=msg.begin(); it!=msg.end(); it++)
 	{
 		CData key = it->first;
 		CData val = it->second;
-		LogInfo("key:"<<key<<" val:"<<val);
+		//LogInfo("key:"<<key<<" val:"<<val);
 	}
 	
 	return 0;

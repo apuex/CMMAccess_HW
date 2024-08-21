@@ -955,7 +955,7 @@ namespace CMM{
 	{	
 		std::list<CData> devIdList;
 		APPAPI::GetDevId("msj", devIdList);
-		LogInfo("=======>> CMMAccess ====> NotifyAlarm== devIdList size:"<<devIdList.size());
+		//LogInfo("=======>> CMMAccess ====> NotifyAlarm== devIdList size:"<<devIdList.size());
 		if(msg.size()>0)		
 		{	
 			CData seq; 
@@ -963,7 +963,7 @@ namespace CMM{
 				auto it=msg.find("serialNO");
 				if (it!=msg.end()) seq = it->second;
 			}
-			LogInfo("=======>> CMMAccess ====> NotifyAlarm== seq:"<<seq);
+			//LogInfo("=======>> CMMAccess ====> NotifyAlarm== seq:"<<seq);
 			TAlarm alarm = {0};
 			if(FromAlarmInfoToTAlarm2(msg, alarm) == 0)
 			{		
@@ -977,7 +977,7 @@ namespace CMM{
 						{
 							m_log.log(alarm);
 							m_alarmList.erase(pos);
-							LogInfo("=======>> CMMAccess ====>m_alarmList.erase seq:"<<seq);
+							//LogInfo("=======>> CMMAccess ====>m_alarmList.erase seq:"<<seq);
 							return;
 						}
 					}
@@ -986,7 +986,7 @@ namespace CMM{
 				m_alarmList.push_back(alarm);
 				m_alarmListBak = m_alarmList;
 				m_log.log(alarm);
-				LogInfo("=======m_alarmList.push_back:"<<seq);
+				//LogInfo("=======m_alarmList.push_back:"<<seq);
 			}
 		}
 	}

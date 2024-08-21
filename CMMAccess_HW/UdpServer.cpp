@@ -114,7 +114,7 @@ namespace CMM
 				if (!received)
 				{
 					std::string response = "Failed to receive data after retries.";
-					m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
+					//m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
 					LogError("Failed to receive data after retries.");
 					continue;
 				}
@@ -123,7 +123,7 @@ namespace CMM
 				if (!CTransData::UnPackageRecvData(recvBuffer, recvBytes, outBuffer))
 				{
 					std::string response = "UnPackageRecvData failed.";
-					m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
+					//m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
 					LogError("UnPackageRecvData return false.");
 					continue;
 				}
@@ -131,12 +131,12 @@ namespace CMM
 				if (!CMMAccess::instance()->writeDataToUart(outBuffer))
 				{
 					std::string response = "writeDataToUart failed.";
-					m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
+					//m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
 					LogError("writeDataToUart false.");
 					continue;
 				}
 				std::string response = "writeDataToUart sucess.";
-				m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
+				//m_ServerSocket.sendTo(response.c_str(), response.length(), senderAddr);
 			}
 			catch (Poco::Exception& exc)
 			{
