@@ -164,12 +164,13 @@ namespace CMM
 				std::string content((std::istreambuf_iterator<char>(rs)),
 					std::istreambuf_iterator<char>());
 				LogInfo("content: " << content);
-				if (-1 == CMMDeviceConfig::instance()->SetDevConf(content))
+				int nRet = CMMDeviceConfig::instance()->SetDevConf(content);
+				if (0 != nRet)
 				{
 					response.setStatus(HTTPResponse::HTTP_BAD_REQUEST);
 					response.setContentType("application/json");
 					std::ostream& out = response.send();
-					out << CMMDeviceConfig::instance()->EncodeResponseJson(-1);
+					out << CMMDeviceConfig::instance()->EncodeResponseJson(nRet);
 					return;
 				}
 				CMMConfig::instance()->UpdateCfgFile();  //同步更新CMMConfig dev conf内容

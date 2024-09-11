@@ -15,7 +15,7 @@
 #include "../../ExtAppIpc/ExtAppIpcApi.h"
 #include "../../ExtAppIpc/ExtAppIpcStruct.h"
 
-#define  CMM_DEVICE_JSON_FILE_PATH "/appdata/config/CMMAccess_HW_device.json"
+#define  CMM_DEVICE_JSON_FILE_PATH "/appdata/config/CMMAccess_YJ_device.json"
 namespace CMM{
 	CMMDeviceConfig * CMMDeviceConfig::_instance = NULL;
 
@@ -166,17 +166,16 @@ namespace CMM{
 	int CMMDeviceConfig::SetDevConf(std::string& jsonData)
 	{
 		ISFIT::SmartLock lock(m_devCfgMutex);
-
-		if (ParseJson(jsonData))
+		int nRet = ParseJson(jsonData);
+		if (0 == nRet)
 		{
 			ParseMap2Json();
 			SaveFile();
-			return 0;
 		}
-		return -1;
+		return nRet;
 	}
 
-	bool CMMDeviceConfig::ParseJson(std::string& jsonData)
+	int CMMDeviceConfig::ParseJson(std::string& jsonData)
 	{
 		// 解析JSON字符串  
 		Poco::JSON::Parser parser{};
@@ -189,12 +188,12 @@ namespace CMM{
 		catch (const Poco::Exception& e)
 		{
 			LogNotice("e:" << e.what());
-			return false;
+			return -1;
 		}
 		if (!jsonObj)
 		{
 			LogNotice("jsonObj is nullptr.");
-			return false;
+			return -1;
 		}
 		TDeviceInfo sInfo;
 		try
@@ -215,7 +214,7 @@ namespace CMM{
 		catch (const std::exception& e)
 		{
 			LogNotice("exception : " << e.what());
-			return false;
+			return -1;
 		}
 
 		/*std::map<CData, CData> paramMap;
@@ -232,8 +231,23 @@ namespace CMM{
 		LogInfo("SetDevParam devId:" << sInfo.DeviceNo << " aliasDevId:" << sInfo.AliasDeviceNo << " and return " << nRet);
 		nRet = APPAPI::SetDevParam(sInfo.AliasDeviceNo, "alias", paramMap);
 		LogInfo("SetDevParam alias  devId return " << nRet);*/
-
-		if (m_aliasId2Info.find(sInfo.DeviceNo) == m_aliasId2Info.end())
+		for (auto& it : m_aliasId2Info)
+		{
+			if (it.second.AliasDeviceNo == sInfo.AliasDeviceNo)
+			{
+				if (it.second.DeviceNo != sInfo.DeviceNo)
+				{
+					LogError("this AliasDeviceNo is exist,can.t set " << it.second.AliasDeviceNo);
+					return -3;
+				}
+				else
+				{
+					break;
+				}
+			}
+		}
+		auto iter = m_aliasId2Info.find(sInfo.DeviceNo);
+		if (iter == m_aliasId2Info.end())
 		{
 			m_aliasId2Info.emplace(sInfo.DeviceNo, sInfo);
 		}
@@ -242,7 +256,7 @@ namespace CMM{
 			m_aliasId2Info[sInfo.DeviceNo] = sInfo;
 		}
 		LogInfo("set map sucess and m_aliasId2Info size " << m_aliasId2Info.size());
-		return true;
+		return 0;
 	}
 
 	bool CMMDeviceConfig::ParseJson2Map(std::string& jsonData)
@@ -360,6 +374,13 @@ namespace CMM{
 				<< "\"message\": \"The request type is incorrect.\""
 				<< "}";
 		}
+		else if (nType == -3)
+		{
+			jsonDataStream << "{"
+				<< "\"code\": -3,"
+				<< "\"message\": \"Duplicate device alias, please re-enter.\""
+				<< "}";
+		}
 		else
 		{
 			jsonDataStream << "{"
@@ -394,6 +415,13 @@ namespace CMM{
 			jsonDataStream << "{"
 				<< "\"code\": -2,"
 				<< "\"message\": \"The request type is incorrect.\""
+				<< "}";
+		}
+		else if (nType == -3)
+		{
+			jsonDataStream << "{"
+				<< "\"code\": -3,"
+				<< "\"message\": \"Duplicate device alias, please re-enter.\""
 				<< "}";
 		}
 		else

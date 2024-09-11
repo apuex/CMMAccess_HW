@@ -40,7 +40,7 @@ namespace CMM{
 		* 设备单个设备信息json
 		*/
 		int SetDevConf(std::string& jsonData);
-		bool ParseJson(std::string& jsonData);
+		int ParseJson(std::string& jsonData);
 		/*
 		*将设备列表json导入为map
 		*/
